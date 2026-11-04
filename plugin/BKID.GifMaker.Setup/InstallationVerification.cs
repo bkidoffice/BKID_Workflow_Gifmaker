@@ -11,12 +11,16 @@ namespace BKID.GifMaker.Setup
     internal sealed class InstallationVerification
     {
         private readonly byte[] pluginHash;
+        private readonly byte[] runtimeHash;
+        private readonly long runtimeLength;
         private readonly string toolbarId;
         private readonly Dictionary<string, string> requiredMacros;
 
-        internal InstallationVerification(byte[] expectedPlugin, byte[] expectedToolbar)
+        internal InstallationVerification(byte[] expectedPlugin, byte[] expectedToolbar, byte[] expectedRuntime = null)
         {
             pluginHash = Hash(expectedPlugin);
+            runtimeHash = expectedRuntime == null ? null : Hash(expectedRuntime);
+            runtimeLength = expectedRuntime == null ? 0 : expectedRuntime.LongLength;
             using (var input = new MemoryStream(expectedToolbar))
             {
                 var document = ReadToolbar(input);
@@ -33,6 +37,14 @@ namespace BKID.GifMaker.Setup
             try
             {
                 if (!File.Exists(pluginFile) || !Hash(File.ReadAllBytes(pluginFile)).SequenceEqual(pluginHash)) return false;
+                if (runtimeHash != null)
+                {
+                    string runtime = Path.Combine(Path.GetDirectoryName(pluginFile), "BKID.FFmpeg.zip");
+                    if (!File.Exists(runtime) || new FileInfo(runtime).Length != runtimeLength) return false;
+                    using (var input = File.OpenRead(runtime))
+                    using (var hash = SHA256.Create())
+                        if (!hash.ComputeHash(input).SequenceEqual(runtimeHash)) return false;
+                }
                 string toolbarFile = Path.ChangeExtension(pluginFile, ".rui");
                 if (!File.Exists(toolbarFile)) return false;
                 using (var input = File.OpenRead(toolbarFile))

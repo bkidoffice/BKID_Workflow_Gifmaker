@@ -4,7 +4,7 @@
     <TargetExt>.rhp</TargetExt>
     <AssemblyName>BKID.GifMaker</AssemblyName>
     <RootNamespace>BKID.GifMaker</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <AssemblyTitle>BKID GifMaker</AssemblyTitle>
     <Description>Linear part motion GIF capture with a native BKID toolbar.</Description>
     <Company>BKID</Company>
@@ -16,11 +16,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.IO.Compression" />
     <PackageReference Include="RhinoCommon" Version="6.0.18016.23451" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
     <EmbeddedResource Include="../../src/BKID_GifMaker.py" LogicalName="BKID.GifMaker.Capture.py" />
     <EmbeddedResource Include="../../assets/icon_64.png" LogicalName="BKID.GifMaker.Icon.png" />
-    <EmbeddedResource Include="../../src/gif_writer.py" LogicalName="BKID.GifMaker.gif_writer.py" />
+    <Compile Remove="AdaptivePalette.cs" />
+    <EmbeddedResource Include="../../src/ffmpeg_encoder.py" LogicalName="BKID.GifMaker.ffmpeg_encoder.py" />
+    <EmbeddedResource Include="../../third_party/ffmpeg/manifest.xml" LogicalName="BKID.GifMaker.FFmpeg.xml" />
     <EmbeddedResource Include="../../src/motion_preview.py" LogicalName="BKID.GifMaker.motion_preview.py" />
     <EmbeddedResource Include="Toolbar/BKID.GifMaker.rui" LogicalName="BKID.GifMaker.Toolbar.rui" />
   </ItemGroup>

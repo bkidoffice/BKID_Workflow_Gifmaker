@@ -1,18 +1,18 @@
-# BKID Workflowboost GIF Maker 1.3.0
+# BKID Workflowboost GIF Maker 1.4.0
 
 Windows Rhino에서 선택한 부품을 시작점 → 끝점까지 직선 이동시키며 GIF로 저장하는 도구입니다. 원본은 시작 위치에 유지하고 임시 복사본으로 애니메이션을 만듭니다. `.3dm` 파트는 Rhino 문서로 가져오거나 블록으로 삽입한 뒤 선택하세요.
 
 ## 설치
 
 1. Rhino를 모두 종료합니다.
-2. `installers/BKID_GifMaker_Setup_1.3.0.exe`를 실행합니다.
+2. `installers/BKID_GifMaker_Setup_1.4.0.exe`를 실행합니다.
 3. 설치 버튼을 누르고 Rhino Installer에서 **현재 사용자** 설치를 선택합니다.
 4. Rhino를 실행합니다. 최초 실행 시 GIF Maker 아이콘이 있는 `BKID Workflowboost` 툴바가 표시됩니다. 이후 도킹·표시 상태는 Rhino 설정을 따릅니다.
 5. 툴바를 다시 열려면 `BKIDGifMaker`, 직접 실행하려면 `BKIDGifMakerCapture` 명령을 입력합니다.
 
 EXE는 기존 AutoCrop과 같은 설치 창·재설치 확인·RHI 실행·결과 파일 검증 방식을 사용합니다. 재설치에서 **아니오**를 선택하면 기존 파일을 유지합니다. **예**를 선택하면 GIF Maker의 기존 관리 파일을 삭제한 후 설치하며, 취소·실패 시 이전 버전을 자동 복원하지 않습니다. AutoCrop은 별도 플러그인 GUID로 유지됩니다. 설치 EXE에는 코드 서명이 없습니다.
 
-대체 설치: `installers/BKID_GifMaker_1.3.0.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
+대체 설치: `installers/BKID_GifMaker_1.4.0.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
 
 ## 사용
 
@@ -29,9 +29,9 @@ EXE는 기존 AutoCrop과 같은 설치 창·재설치 확인·RHI 실행·결�
 
 ## 개발 및 검증
 
-대상: Windows Rhino 6 및 Rhino 8의 내장 IronPython 2.7 (`RunPythonScript`). Rhino 8 CPython 3 실행 경로는 지원·검증하지 않았습니다. 사용자 PC에 Pillow·FFmpeg를 설치할 필요가 없습니다.
+대상: Windows 10/11 x64의 Rhino 6 및 Rhino 8의 내장 IronPython 2.7 (`RunPythonScript`). Rhino 8 CPython 3 실행 경로는 지원·검증하지 않았습니다. 사용자 PC에 Pillow·FFmpeg를 별도 설치할 필요가 없습니다. 검증된 Windows FFmpeg LGPL 공유 배포본을 설치 패키지에 포함합니다.
 
-빌드: .NET SDK 8 및 Python 3을 설치하고 저장소 루트에서 실행합니다.
+빌드: .NET SDK 8 및 Python 3을 설치하고 저장소 루트에서 실행합니다. 첫 빌드는 고정된 FFmpeg Windows 배포본을 다운로드하고 SHA256을 검사합니다. Python 통합 테스트를 실행하는 개발 PC에는 FFmpeg 7 이상이 PATH에 필요합니다. 설치 프로그램을 쓰는 Windows 사용자에게는 변환기가 동봉됩니다.
 
 ```sh
 python tools/build_rhi.py --dotnet /path/to/dotnet
@@ -41,7 +41,7 @@ python -m unittest discover -s tests -v
 
 빌더는 잠금 파일로 의존성을 복원하고 실제 RHP·Windows EXE를 컴파일합니다. Rhino 6.0.18016.23451 SDK로 동적 캡처 API를 별도 컴파일하고, RHP 식별자·내장 Python/GIF 인코더·아이콘·EXE 내 RHI·설치 이미지를 검증합니다. 설치 코드 공유 테스트도 실행합니다.
 
-현재 Linux 검증 결과: Python 테스트 14개 통과(GIF 픽셀·프레임·반복·시간, 모의 Rhino 양방향 미리보기 이동·저장 시 처음부터 재시작·미리보기/저장 취소·미리보기 오류·이동 실패 후 원본·파일 복원), C# 빌드 및 초기 Rhino 6 API 컴파일 통과, 설치 관리·재설치 동의·설치 결과 검증 테스트 통과. 모의 Rhino 테스트는 실제 Rhino 렌더링 테스트가 아닙니다.
+현재 Linux 검증 결과: Python 테스트 16개 통과(GIF 픽셀·프레임·반복·시간, 모의 Rhino 양방향 미리보기 이동·저장 시 처음부터 재시작·미리보기/저장 취소·미리보기 오류·이동 실패 후 원본·파일 복원), C# 빌드 및 초기 Rhino 6 API 컴파일 통과, 설치 관리·재설치 동의·설치 결과 검증 테스트 통과. 모의 Rhino 테스트는 실제 Rhino 렌더링 테스트가 아닙니다.
 
 **Windows Rhino 6/8 실기기에서 EXE 설치·툴바·IronPython 실행·실제 GIF 캡처는 아직 실행하지 않았습니다.** 두 버전 모두 아래 항목을 확인해야 합니다.
 
@@ -80,3 +80,11 @@ AutoCrop 원본 SVG 프레임 좌표·두께·여백과 `#0645F5` 색상을 그�
 진행률은 PNG 캡처·이미지 변환·GIF 기록의 처리 단계 기준이며 예상 남은 시간을 뜻하지 않습니다. 성공·실패·취소 때 이 작업이 생성한 진행률 표시만 해제합니다. 기존 GIF는 새 GIF가 완성된 후에만 교체합니다.
 
 검증: Python 통합·GIF 디코딩 테스트 14개 통과. 모든 PNG를 먼저 만든 뒤 합치는 순서, PNG의 표면 RGB와 투명도, 변환 실패 후 기존 파일·원본·진행률 복원, PNG 보관을 확인했습니다. 실제 배포용 C# 색상 변환 코드 테스트는 255색의 원본 RGB 보존·투명도·표면 색상 오차 감소를 확인합니다. 테스트 그라데이션의 평균 제곱 오차는 기존 고정 팔레트 324.42에서 11.44로 줄었습니다. 이 수치는 테스트 이미지 결과이며 모든 실제 모델의 화질을 보장하지 않습니다. Windows Rhino에서의 실제 재질·뷰포트 렌더링과 진행률 UI는 여전히 실기기 검증이 필요합니다.
+
+## 1.4.0 저장된 GIF의 면 표현 수정
+
+사용자가 미리보기·캡처가 아니라 저장된 GIF에서만 면이 깨진다고 확인했으므로, 정상 PNG 캡처 경로와 모델 이동은 유지했습니다. 1.3.0의 자체 적응형 색상 변환·오차 확산·GIF 인코더는 배포 실행 경로에서 제거했습니다. 캡처 PNG들을 표준 FFmpeg로 합치고 **디더링을 끄며**, 모든 프레임이 **같은 색상표**를 사용하게 했습니다. 표면에 인위적인 점무늬가 생기거나 프레임마다 색상표가 달라지는 문제를 줄입니다. 재질·조명·면·메쉬에는 추가 변환을 하지 않습니다. GIF 자체의 색상 수 제한은 남습니다.
+
+실제 FFmpeg를 실행한 테스트에서 PNG의 회색·흰색·검은색 RGB, 프레임 수·지연 시간, 투명 배경, 이전 위치의 잔상 제거를 확인했습니다. 255색을 넘는 그라데이션 면을 여러 위치로 이동한 테스트도 같은 표면 픽셀의 표현이 위치마다 달라지지 않는 것을 확인했습니다. C# 프로세스 코드의 한글·공백·따옴표 경로, 진행 출력·오류 수집 및 취소를 실제 자식 프로세스로 검증했습니다. Windows 변환기 파일은 공식 체크섬으로 검증했고 설치 확인도 변환기 파일의 크기·해시를 요구합니다. Windows Rhino에서의 실제 사용자 모델은 아직 재현 실행하지 못했습니다.
+
+다운로드 ZIP은 설치 EXE와 설명서를 포함합니다. 중복된 대용량 RHI는 ZIP에서 제외했으며 별도 RHI도 `installers`에 제공됩니다. 변환기 동봉으로 설치 파일은 약 80MB입니다. FFmpeg 버전·소스·라이선스·해시는 [third_party/ffmpeg/NOTICE.md](third_party/ffmpeg/NOTICE.md)에 기록했습니다.

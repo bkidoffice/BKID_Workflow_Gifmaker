@@ -3,3 +3,4 @@ __pycache__/
 **/bin/
 **/obj/
 .venv/
+vendor/ffmpeg/BKID.FFmpeg.zip

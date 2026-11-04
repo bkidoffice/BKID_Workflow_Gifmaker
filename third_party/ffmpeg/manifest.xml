@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ffmpeg sha256="a8d0a12a76f5820456f5a60dbfe1bbf782cf4daa93a1e594a8da8172150992a9" url="https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-03-12-50/ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1.zip">
+  <file name="swresample-6.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/swresample-6.dll" sha256="8954ea10ede3f277906639f5eae11cd2aef1bffc0171680bfd1d3d7b037f8de5" />
+  <file name="avfilter-11.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/avfilter-11.dll" sha256="24a8a76dec9aa563042e07bc8514c7d13c89953925de2878a3da509e199f81f0" />
+  <file name="avutil-60.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/avutil-60.dll" sha256="ed050835245a84811515e2ad9635147fdb7e9e79acf66f425ec7dd96c8370c4d" />
+  <file name="avformat-62.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/avformat-62.dll" sha256="5b3d76ab0beff12acc26a23b25963dc0fb03cf05e091a2c6f1cdb25811536811" />
+  <file name="ffmpeg.exe" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/ffmpeg.exe" sha256="2f1b9dfc9c21936853efe8c42003b9b082fb40fb4adadb36908ede1ade3d62cc" />
+  <file name="swscale-9.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/swscale-9.dll" sha256="19d26e2feb6272b4d69a15e1488c2296ea451f9ad6a104c08e233a4c99b08948" />
+  <file name="avdevice-62.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/avdevice-62.dll" sha256="5ec3d86dd90875184317a9274dcd02f1a542dacbc93e43bf231a42d4479a78e1" />
+  <file name="avcodec-62.dll" entry="ffmpeg-n8.1.3-32-g760d10603e-win64-lgpl-shared-8.1/bin/avcodec-62.dll" sha256="8b35e6e733877ab5c8320443efa612d7b02d0364f8e3812d21f323f660cfedf6" />
+</ffmpeg>

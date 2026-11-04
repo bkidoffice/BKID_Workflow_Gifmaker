@@ -12,15 +12,13 @@ import Rhino
 import rhinoscriptsyntax as rs
 import scriptcontext as sc
 import System
-from System import Array, Byte, Guid, IntPtr
-from System.Drawing import Bitmap, Rectangle
-from System.Drawing.Imaging import ImageFormat, ImageLockMode, PixelFormat
-from System.Runtime.InteropServices import Marshal
+from System import Guid
+from System.Drawing.Imaging import ImageFormat
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from gif_writer import GifWriter
+from ffmpeg_encoder import encode_frames
 
 
 class SaveProgress(object):
@@ -58,36 +56,6 @@ class SaveProgress(object):
 def show_preview(view, seconds, intervals, move_to):
     from motion_preview import show
     return show(view, seconds, intervals, move_to)
-
-
-def quantize_png(path):
-    """Assemble from the saved lossless captures, with an image-specific palette."""
-    import clr
-    assemblies = [item for item in System.AppDomain.CurrentDomain.GetAssemblies()
-                  if item.GetName().Name == "BKID.GifMaker"]
-    if len(assemblies) != 1:
-        raise RuntimeError("Run BKIDGifMakerCapture from the installed GIF Maker plug-in")
-    clr.AddReference(assemblies[0])
-    from BKID.GifMaker import AdaptivePalette
-    bitmap = Bitmap(path)
-    try:
-        width, height = bitmap.Width, bitmap.Height
-        converted = bitmap.Clone(Rectangle(0, 0, width, height), PixelFormat.Format32bppArgb)
-        try:
-            data = converted.LockBits(Rectangle(0, 0, width, height),
-                                      ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)
-            try:
-                pixels = Array.CreateInstance(Byte, width * height * 4)
-                for y in range(height):
-                    Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), pixels, y * width * 4, width * 4)
-                result = AdaptivePalette.Quantize(pixels, width, height)
-                return bytearray(result.Indices), bytearray(result.Palette)
-            finally:
-                converted.UnlockBits(data)
-        finally:
-            converted.Dispose()
-    finally:
-        bitmap.Dispose()
 
 
 def run():
@@ -203,17 +171,7 @@ def run():
             save_progress.update((frame + 1) * 2, u"PNG 캡처 완료", frame + 1)
         # Then assemble those saved captures. No Rhino rerender or display/material
         # override occurs during GIF conversion. Keep memory bounded to one frame.
-        with open(temporary, "wb") as output:
-            writer = GifWriter(output, width, height, transparent=True)
-            for frame, (png, delay) in enumerate(frames):
-                unit = len(frames) * 2 + frame * 2
-                save_progress.update(unit, u"캡처 이미지 색상 최적화 중", frame + 1)
-                indices, palette = quantize_png(png)
-                save_progress.update(unit + 1, u"캡처들을 GIF로 합치는 중", frame + 1)
-                writer.add_frame(indices, delay, palette)
-                save_progress.update(unit + 2, u"GIF 프레임 기록 완료", frame + 1)
-                Rhino.RhinoApp.WriteLine(u"GIF 저장 {0}/{1} 프레임 완료".format(frame + 1, intervals + 1))
-            writer.finish()
+        encode_frames(frames, temporary, save_progress)
         save_progress.update((intervals + 1) * 4, u"최종 파일 저장 중", intervals + 1)
         if os.path.exists(path):
             System.IO.File.Replace(temporary, path, None)

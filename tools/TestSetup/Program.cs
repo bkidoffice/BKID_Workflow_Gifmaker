@@ -111,5 +111,18 @@ try
     Assert(!verification.Matches(plugin), "Missing resolution command must fail verification.");
     Console.WriteLine("PASS: old/missing files and missing commands remain failures; delayed valid files after 403 succeed.");
 
+    File.WriteAllBytes(plugin, payload); File.WriteAllText(rui, toolbar);
+    byte[] runtimePayload = { 1, 2, 3, 4 };
+    var complete = new InstallationVerification(payload, System.Text.Encoding.UTF8.GetBytes(toolbar), runtimePayload);
+    var runtimeFile = Path.Combine(verifiedFolder, "BKID.FFmpeg.zip");
+    Assert(!complete.Matches(plugin), "Missing converter must not count as a complete installation.");
+    File.WriteAllBytes(runtimeFile, new byte[] { 1, 2 });
+    Assert(!complete.Matches(plugin), "Partially copied converter must fail.");
+    File.WriteAllBytes(runtimeFile, new byte[] { 4, 3, 2, 1 });
+    Assert(!complete.Matches(plugin), "Wrong converter hash must fail even when file size matches.");
+    File.WriteAllBytes(runtimeFile, runtimePayload);
+    Assert(complete.Matches(plugin), "Verified converter must complete the installation.");
+    Console.WriteLine("PASS: bundled converter presence, complete size and hash are required.");
+
 }
 finally { Directory.Delete(root, true); }

@@ -29,3 +29,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 프레임별 적�
 1.2.1: AutoCrop `capture_dimensions`/`capture`가 1배율에서 `ActiveViewport.Size.Width/Height`를 ViewCapture에 넘기는 것을 확인하고 GIF 기본 출력에도 같은 기준을 적용했습니다. 고정 800px·1600px 제한을 제거했고 1920×1080 기본값의 실제 GIF 크기를 모의 Rhino 통합 테스트로 검증했습니다.
 
 1.3.0: AutoCrop의 `capture()` 실제 호출 흐름과 동일한 ViewCapture 설정으로 원본 PNG 프레임을 먼저 저장하고, `quantize_png` → 자체 `AdaptivePalette.Quantize` → 프레임별 GIF local color table로 합성합니다. C# 코드의 가중 중앙값 분할·오차 확산은 이 프로젝트에서 구현했으며 외부 라이브러리 코드를 복제하지 않았습니다. `tools/TestPalette`는 배포 소스 파일을 직접 링크해 실제 알고리즘을 실행합니다. Rhino 6 SDK의 `RhinoCommon.XML`에서 StatusBar.ShowProgressMeter/UpdateProgressMeter/HideProgressMeter, SetMessagePane 및 ClearMessagePane를 확인하고 컴파일했습니다.
+
+1.4.0: 사용자가 저장된 GIF에서만 면 표현이 깨진다고 확인해 캡처 경로 변경 시도는 배포 전에 제외했습니다. 기존 정상 PNG는 유지하고 자체 `AdaptivePalette`/`gif_writer`를 실행·패키지에서 제외했습니다. FFmpeg의 `palettegen=stats_mode=full:reserve_transparent=1`과 `paletteuse=dither=none:alpha_threshold=128`으로 모든 PNG에 공통 팔레트를 적용합니다. 실제 FFmpeg GIF를 Pillow로 다시 열어 색상·투명도·시간·잔상·이동 중 동일 표면 표현을 검증했습니다. Linux 검증용 FFmpeg는 7.1.5, Windows 동봉본은 8.1.3 계열이며 동봉본의 Windows 실행 자체는 미검증입니다. 배포 출처/고정 해시/소스·라이선스는 `third_party/ffmpeg`에 기록했습니다.

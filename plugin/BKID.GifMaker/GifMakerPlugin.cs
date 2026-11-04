@@ -57,9 +57,9 @@ namespace BKID.GifMaker
         }
         internal string PrepareScript()
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.3.0");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.4.0");
             Directory.CreateDirectory(folder);
-            foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py", "motion_preview.py" })
+            foreach (var name in new[] { "BKID_GifMaker.py", "ffmpeg_encoder.py", "motion_preview.py" })
             {
                 var resource = name == "BKID_GifMaker.py" ? "BKID.GifMaker.Capture.py" : "BKID.GifMaker." + name;
                 using (var input = GetType().Assembly.GetManifestResourceStream(resource))
@@ -68,6 +68,8 @@ namespace BKID.GifMaker
                     using (var output = File.Create(Path.Combine(folder, name))) input.CopyTo(output);
                 }
             }
+            var executable = FfmpegRuntime.Prepare();
+            File.WriteAllText(Path.Combine(folder, "ffmpeg_path.txt"), executable, new System.Text.UTF8Encoding(false));
             return Path.Combine(folder, "BKID_GifMaker.py");
         }
         protected override void OnShutdown() { RhinoApp.Idle -= OnIdle; base.OnShutdown(); }

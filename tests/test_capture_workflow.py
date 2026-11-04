@@ -8,6 +8,8 @@ import io
 from pathlib import Path
 import sys
 import tempfile
+import shutil
+import subprocess
 import types
 import unittest
 from unittest.mock import patch
@@ -134,21 +136,20 @@ class WorkflowTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
-            def quantize_png(png):
-                # The real adaptive quantizer is exercised by TestPalette. This
-                # integration check proves all PNGs exist before assembly and
-                # verifies the GIF consumes their captured pixels, not a render.
+            from ffmpeg_encoder import encode_frames
+            def assemble(frames, output, progress):
+                # Exercise the actual FFmpeg commands against the captured PNGs.
                 self.assertEqual(len(captured), 2)
                 if encoder_error:
                     raise RuntimeError('Could not assemble PNG captures')
-                with Image.open(png) as image:
-                    image = image.convert('RGBA')
-                    self.assertEqual(image.getpixel((0, 0))[3], 0)
-                    rgb = image.getpixel((1, 0))[:3]
-                    palette = bytearray(768)
-                    palette[:3] = bytearray(rgb)
-                    return bytearray([255] + [0] * (image.width * image.height - 1)), palette
-            capture.quantize_png = quantize_png
+                def run(executable, arguments, directory, report):
+                    report(0)
+                    process = subprocess.run([executable] + arguments, cwd=directory, capture_output=True, text=True, timeout=30)
+                    if process.returncode != 0: raise RuntimeError(process.stderr)
+                    for line in process.stdout.splitlines():
+                        if line.startswith('frame='): report(int(line.split('=', 1)[1]))
+                encode_frames(frames, output, progress, executable=shutil.which('ffmpeg'), run_job=run)
+            capture.encode_frames = assemble
             def preview(view, seconds, intervals, move_to):
                 for value in preview_positions:
                     move_to(value)
