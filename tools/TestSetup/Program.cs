@@ -18,6 +18,30 @@ try
     catch (InvalidOperationException) { missing = true; }
     Assert(missing, "Missing engine must stop preflight.");
     Console.WriteLine("PASS: direct Rhino Installer launch, quoted Korean paths, root/System discovery, priority and missing engine preflight.");
+    Assert(RhinoInstallerLaunch.ExecutableFromCommand("\"" + engine + "\" \"%1\"") == engine, "Quoted registered engine command failed.");
+    Assert(RhinoInstallerLaunch.ExecutableFromCommand(engine + " %1") == engine, "Unquoted registered engine command failed.");
+    Assert(RhinoInstallerLaunch.ExecutableFromCommand("\"" + Path.Combine(custom, "7zFM.exe") + "\" %1") == null, "7-Zip association must never be used.");
+    foreach (var bad in new[] { "", "a", "\"unclosed", "rhiexec.exe %1", "cmd.exe /c rhiexec.exe" })
+        Assert(RhinoInstallerLaunch.ExecutableFromCommand(bad) == null, "Malformed or indirect command accepted: " + bad);
+    var shared = Path.Combine(root, "Common Files", "McNeel");
+    var nested = Path.Combine(shared, "Rhinoceros", "8.0", "Installer", "x64");
+    Directory.CreateDirectory(nested);
+    var nestedEngine = Path.Combine(nested, "rhiexec.exe");
+    File.WriteAllText(nestedEngine, "test fixture only");
+    Assert(RhinoInstallerLaunch.SearchTree(shared, 8) == nestedEngine, "Shared/versioned engine not discovered.");
+    Assert(RhinoInstallerLaunch.SearchTree(shared, 2) == null, "Search exceeded depth limit.");
+    Assert(RhinoInstallerLaunch.SearchTree(Path.Combine(root, "absent"), 8) == null, "Missing shared folder should be harmless.");
+    var prepared = RhinoInstallerLaunch.Prepare(package, nestedEngine);
+    Assert(prepared.FileName == nestedEngine && !prepared.UseShellExecute, "Validated shared engine must launch directly.");
+    var sentinel = Path.Combine(root, "existing-install.rhp");
+    File.WriteAllText(sentinel, "preserve");
+    bool invalidEngine = false;
+    try { RhinoInstallerLaunch.Prepare(package, engine); File.Delete(sentinel); }
+    catch (InvalidOperationException) { invalidEngine = true; }
+    Assert(invalidEngine && File.Exists(sentinel), "Missing engine changed existing installation.");
+    File.Delete(sentinel);
+    Directory.Delete(Path.Combine(root, "Common Files"), true);
+    Console.WriteLine("PASS: shared/versioned Installer discovery, command parsing, 7-Zip rejection and preflight preservation.");
     var previous = Path.Combine(root, "BKID.GifMaker.rhp");
     var userFile = Path.Combine(root, "사용자 메모.txt");
     File.WriteAllBytes(previous, new byte[] { 1, 2, 3, 4 });

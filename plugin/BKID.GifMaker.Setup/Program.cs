@@ -41,7 +41,7 @@ namespace BKID.GifMaker.Setup
         private bool busy;
         public SetupWindow()
         {
-            Text = "BKID Workflowboost GIF Maker 1.9.1 설치";
+            Text = "BKID Workflowboost GIF Maker 1.9.2 설치";
             ClientSize = new Size(760, 420);
             Padding = new Padding(0);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -92,7 +92,28 @@ namespace BKID.GifMaker.Setup
             status.Text = "기존 설치를 확인하고 있습니다…\r\nRhino Installer가 열리면 설치를 진행해 주세요.";
             try
             {
-                var reinstaller = new Reinstall();
+                status.Text = "Rhino Installer 위치를 확인하고 있습니다…";
+                var engine = await Task.Run(() => RhinoInstallerLaunch.Locate());
+                if (engine == null)
+                {
+                    using (var picker = new OpenFileDialog
+                    {
+                        Title = "Rhino Installer 위치 선택 — McNeel 공용 폴더 또는 Rhino 설치 폴더의 rhiexec.exe",
+                        Filter = "Rhino Installer (rhiexec.exe)|rhiexec.exe",
+                        CheckFileExists = true,
+                        InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles)
+                    })
+                    {
+                        if (picker.ShowDialog(this) != DialogResult.OK)
+                        {
+                            status.Text = "설치를 취소했습니다. 기존 플러그인은 변경하지 않았습니다.";
+                            install.Enabled = true;
+                            return;
+                        }
+                        engine = picker.FileName;
+                    }
+                }
+                var reinstaller = new Reinstall(engine);
                 bool completed = await InstallWorkflow.RunAsync(
                     reinstaller.IsInstalled,
                     () => MessageBox.Show(this,
@@ -125,6 +146,9 @@ namespace BKID.GifMaker.Setup
         private readonly string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         private readonly ManagedFiles managed = new ManagedFiles();
         private readonly List<string> registry = new List<string>();
+
+        private readonly string installerExecutable;
+        internal Reinstall(string installerExecutable) { this.installerExecutable = installerExecutable; }
 
         internal bool IsInstalled()
         {
@@ -165,7 +189,7 @@ namespace BKID.GifMaker.Setup
 
         private void Install(string temporary, bool replacementAllowed)
         {
-            string package = Path.Combine(temporary, "BKID_GifMaker_1.9.1.rhi");
+            string package = Path.Combine(temporary, "BKID_GifMaker_1.9.2.rhi");
             using (var input = Assembly.GetExecutingAssembly().GetManifestResourceStream("BKID.Setup.Package.rhi"))
             using (var output = File.Create(package)) input.CopyTo(output);
             byte[] expectedPlugin;
@@ -180,7 +204,7 @@ namespace BKID.GifMaker.Setup
             }
             var verification = new InstallationVerification(expectedPlugin, expectedToolbar, expectedRuntime);
             // Resolve the native engine before deleting any previous installation.
-            var start = RhinoInstallerLaunch.Prepare(package);
+            var start = RhinoInstallerLaunch.Prepare(package, installerExecutable);
             // Discover and validate all candidates before removing any installation.
             var oldPlugins = FindInstalledPlugins().ToList();
             foreach (var version in new[] { "6.0", "8.0" })
@@ -209,7 +233,7 @@ namespace BKID.GifMaker.Setup
             foreach (var version in new[] { "6", "8" })
             foreach (var name in new[] { "BKID_GifMaker.py", "Show_GifMaker.py", "BKID_GifMaker.rui", "assets/BKID_GifMaker_Icon.svg", "assets/icon_32.png" })
                 files.Add(Path.Combine(roaming, "BKID", "GifMaker", "Rhino" + version, name.Replace('/', Path.DirectorySeparatorChar)));
-            foreach (var version in new[] { "1.9.1" })
+            foreach (var version in new[] { "1.9.2" })
             foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py", "motion_preview.py" })
                 files.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", version, name));
             managed.Validate(files);
