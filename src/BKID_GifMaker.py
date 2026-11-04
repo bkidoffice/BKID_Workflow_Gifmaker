@@ -53,9 +53,21 @@ class SaveProgress(object):
             Rhino.UI.StatusBar.ClearMessagePane()
 
 
-def show_preview(view, seconds, intervals, move_to):
+def pick_datum_motion(doc, ids):
+    import clr
+    assemblies = [item for item in System.AppDomain.CurrentDomain.GetAssemblies()
+                  if item.GetName().Name == "BKID.GifMaker"]
+    if len(assemblies) != 1:
+        raise RuntimeError("Use the installed BKIDGifMakerCapture command")
+    clr.AddReference(assemblies[0])
+    from BKID.GifMaker import DatumMotion
+    result = DatumMotion.Pick(doc, System.Array[Guid](ids))
+    return result if result.Accepted else None
+
+
+def show_preview(view, seconds, intervals, move_to, datum_summary=None):
     from motion_preview import show
-    return show(view, seconds, intervals, move_to)
+    return show(view, seconds, intervals, move_to, datum_summary)
 
 
 def run():
@@ -64,18 +76,21 @@ def run():
     if view is None or isinstance(view, Rhino.Display.RhinoPageView):
         print(u"모델 뷰포트에서 실행해 주세요.")
         return False
-    ids = rs.GetObjects(u"직선 이동할 부품을 선택하세요", preselect=True)
+    ids = rs.GetObjects(u"Datum CSYS로 이동할 부품을 선택하세요", preselect=True)
     if not ids:
         return False
-    start = rs.GetPoint(u"이동 기준 시작점을 지정하세요")
-    if start is None:
+    try:
+        datum_motion = pick_datum_motion(doc, ids)
+    except Exception:
+        print(traceback.format_exc())
         return False
-    end = rs.GetPoint(u"이동 끝점을 지정하세요", start)
-    if end is None:
+    if datum_motion is None:
         return False
-    vector = end - start
+    vector = datum_motion.WorldTranslation
+    datum_summary = datum_motion.Summary
+    print(datum_summary)
     if vector.Length <= doc.ModelAbsoluteTolerance:
-        print(u"시작점과 끝점이 너무 가깝습니다.")
+        print(u"Datum 이동량이 문서 공차보다 작습니다.")
         return False
     seconds = rs.GetReal(u"이동 시간 (초)", 2.0, 0.2, 10.0)
     if seconds is None:
@@ -129,7 +144,7 @@ def run():
             doc.Views.Redraw()
 
         intervals = max(1, int(round(seconds * fps)))
-        accepted, keep_png = show_preview(view, seconds, intervals, move_to)
+        accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary)
         if not accepted:
             return False
         path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")

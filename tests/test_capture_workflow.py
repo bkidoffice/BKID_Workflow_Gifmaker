@@ -56,7 +56,7 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False):
         objects = Objects()
         objects.fail_move = fail_move
         view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=1920, Height=1080)))
@@ -136,6 +136,8 @@ class WorkflowTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
+            capture.pick_datum_motion = lambda doc, ids: None if datum_cancel else types.SimpleNamespace(
+                WorldTranslation=Vector(10), Summary='Datum X:10 Y:0 Z:0')
             from ffmpeg_encoder import encode_frames
             def assemble(frames, output, progress):
                 # Exercise the actual FFmpeg commands against the captured PNGs.
@@ -150,7 +152,8 @@ class WorkflowTests(unittest.TestCase):
                         if line.startswith('frame='): report(int(line.split('=', 1)[1]))
                 encode_frames(frames, output, progress, executable=shutil.which('ffmpeg'), run_job=run)
             capture.encode_frames = assemble
-            def preview(view, seconds, intervals, move_to):
+            def preview(view, seconds, intervals, move_to, datum_summary=None):
+                self.assertEqual(datum_summary, 'Datum X:10 Y:0 Z:0')
                 for value in preview_positions:
                     move_to(value)
                     scrubbed.append(next(o.x for o in objects.items.values() if not o.IsHidden))
@@ -165,7 +168,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(objects.items[1].selected)
         self.assertEqual(list(path.parent.glob('.bkid-gif-*')), [])
         self.assertEqual(scrubbed, [10 * value for value in preview_positions])
-        self.assertEqual(len(saves), 0 if not preview_accept or preview_error else 1)
+        self.assertEqual(len(saves), 0 if datum_cancel or not preview_accept or preview_error else 1)
         self.assertEqual(meter['shown'], meter['hidden'])
         self.assertEqual(meter['updates'], sorted(meter['updates']))
         if result:
@@ -258,6 +261,14 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(len(frames), 2)
             with Image.open(frames[0]) as image:
                 self.assertEqual(image.convert('RGBA').getpixel((1, 0)), (125, 129, 133, 255))
+
+    def test_cancel_datum_before_animation_leaves_model_and_output_untouched(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'cancelled.gif'
+            result, positions = self.run_capture(path, datum_cancel=True)
+            self.assertFalse(result)
+            self.assertEqual(positions, [])
+            self.assertFalse(path.exists())
 
 
 if __name__ == '__main__':

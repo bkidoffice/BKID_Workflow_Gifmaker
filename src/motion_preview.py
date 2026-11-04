@@ -11,7 +11,7 @@ from System.Drawing.Imaging import ImageFormat
 
 
 class MotionPreview(forms.Dialog[bool]):
-    def __init__(self, view, seconds, intervals, move_to):
+    def __init__(self, view, seconds, intervals, move_to, datum_summary=None):
         self.Title = u"BKID GIF Maker - 이동 미리보기"
         self.Resizable = False
         self.Padding = drawing.Padding(16)
@@ -59,6 +59,8 @@ class MotionPreview(forms.Dialog[bool]):
         layout.Spacing = drawing.Size(8, 8)
         layout.AddRow(forms.Label(Text=u"슬라이더를 좌우로 움직여 시작부터 끝까지 확인하세요."))
         layout.AddRow(forms.Label(Text=u"GIF 배경은 투명하게 저장됩니다."))
+        if datum_summary:
+            layout.AddRow(forms.Label(Text=datum_summary))
         layout.AddRow(self.picture)
         layout.AddRow(self.slider)
         layout.AddRow(forms.Label(Text=u"시작"), None, forms.Label(Text=u"끝"))
@@ -177,8 +179,8 @@ class MotionPreview(forms.Dialog[bool]):
         self.Dispose()
 
 
-def show(view, seconds, intervals, move_to):
-    dialog = MotionPreview(view, seconds, intervals, move_to)
+def show(view, seconds, intervals, move_to, datum_summary=None):
+    dialog = MotionPreview(view, seconds, intervals, move_to, datum_summary)
     try:
         accepted = dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
         if dialog.error is not None:

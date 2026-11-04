@@ -30,13 +30,15 @@ def main():
                     str(ROOT / 'src/BKID_GifMaker.py'), str(ROOT / 'assets/icon_64.png')], check=True)
     out = ROOT / 'installers'
     out.mkdir(exist_ok=True)
-    package = out / 'BKID_GifMaker_1.4.0.rhi'
+    package = out / 'BKID_GifMaker_1.5.0.rhi'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.write(binary, binary.name)
         archive.write(toolbar, toolbar.name)
         archive.write(runtime, 'BKID.FFmpeg.zip')
         for license_file in (ROOT / 'third_party/ffmpeg').glob('*'):
             if license_file.is_file(): archive.write(license_file, 'ffmpeg-notices/' + license_file.name)
+        for license_file in (ROOT / 'third_party/mcneel').glob('*'):
+            if license_file.is_file(): archive.write(license_file, 'mcneel-notices/' + license_file.name)
     with zipfile.ZipFile(package) as archive:
         if archive.testzip() is not None:
             raise RuntimeError('Corrupt installer package')
@@ -46,12 +48,13 @@ def main():
     setup = ROOT / 'plugin/BKID.GifMaker.Setup/BKID.GifMaker.Setup.csproj'
     subprocess.run([args.dotnet, 'restore', str(setup), '--locked-mode'], check=True)
     subprocess.run([args.dotnet, 'build', str(setup), '-c', 'Release', '--no-restore'], check=True)
-    exe = setup.parent / 'bin/Release/net45/BKID_GifMaker_Setup_1.4.0.exe'
+    exe = setup.parent / 'bin/Release/net45/BKID_GifMaker_Setup_1.5.0.exe'
     subprocess.run([args.dotnet, 'run', '--project', verify, '-c', 'Release', '--', '--setup',
                     str(exe), str(package), str(ROOT / 'assets/WizardImage.png')], check=True)
     shutil.copyfile(exe, out / exe.name)
     subprocess.run([args.dotnet, 'run', '--project', str(ROOT / 'tools/TestSetup'), '-c', 'Release'], check=True)
     subprocess.run([args.dotnet, 'run', '--project', str(ROOT / 'tools/TestFfmpeg'), '-c', 'Release'], check=True)
+    subprocess.run([args.dotnet, 'run', '--project', str(ROOT / 'tools/TestDatum'), '-c', 'Release'], check=True)
     print('Built', package.name, 'and', exe.name)
 
 
