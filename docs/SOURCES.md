@@ -18,7 +18,7 @@
   - `ViewCapture` 크기·그리드·축·배경 설정 → `CaptureToBitmap(view)` 흐름을 확인했습니다. 코드 원문은 배포하지 않습니다.
 - RhinoCommon NuGet `6.0.18016.23451` 참조 어셈블리로 `ViewCapture`, `FindId`, `Transform`, `Hide`, `Show`, `Delete`, 선택 복원 및 툴바 생명주기를 컴파일 검증했습니다.
 
-GIF89a 인코더는 이 프로젝트에서 구현했습니다. 256색 고정 팔레트, 9-bit LZW 사전의 조기 초기화, NETSCAPE 반복 확장을 사용합니다. Pillow는 개발 테스트에서 결과 GIF를 독립적으로 디코딩하는 용도로만 사용하며 플러그인에 배포하지 않습니다.
+GIF89a 인코더는 이 프로젝트에서 구현했습니다. 프레임별 적응형 팔레트(기존 고정 팔레트 경로도 유지), 9-bit LZW 사전의 조기 초기화, NETSCAPE 반복 확장을 사용합니다. Pillow는 개발 테스트에서 결과 GIF를 독립적으로 디코딩하는 용도로만 사용하며 플러그인에 배포하지 않습니다.
 
 1.0.1: 원본 AutoCrop SVG를 `assets/AutoCrop_Reference.svg`로 보존하고 파란 프레임 path를 그대로 사용한 벡터 아이콘으로 정규화했습니다. 동일한 CairoSVG 렌더링에서 16·24·32·64px의 모든 프레임 픽셀을 비교했습니다. 속도선 역시 `#0645F5`를 사용합니다. GIF Maker 소유 툴바의 단일 이미지 스트립만 한 번 갱신하며 저장된 도킹·표시 상태와 나머지 XML을 유지합니다.
 
@@ -27,3 +27,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 256색 고정 팔
 1.2.0: AutoCrop 최신 커밋 `781b0a28c9d697e4c83cd8552d2488106445daed`의 실제 RUI와 생성 스크립트를 비교했습니다. 16/24/32px 크기·DPI·표시 방식·컨테이너 기본값이 같습니다. 색 유사도 제거 대신 Rhino ViewCapture 알파 → BGRA → 예약 투명 인덱스를 사용합니다. GIF GCE 투명 플래그와 disposal=2를 적용하고 Pillow 독립 디코딩으로 흰색/검은색·투명 배경·잔상 방지를 검증했습니다.
 
 1.2.1: AutoCrop `capture_dimensions`/`capture`가 1배율에서 `ActiveViewport.Size.Width/Height`를 ViewCapture에 넘기는 것을 확인하고 GIF 기본 출력에도 같은 기준을 적용했습니다. 고정 800px·1600px 제한을 제거했고 1920×1080 기본값의 실제 GIF 크기를 모의 Rhino 통합 테스트로 검증했습니다.
+
+1.3.0: AutoCrop의 `capture()` 실제 호출 흐름과 동일한 ViewCapture 설정으로 원본 PNG 프레임을 먼저 저장하고, `quantize_png` → 자체 `AdaptivePalette.Quantize` → 프레임별 GIF local color table로 합성합니다. C# 코드의 가중 중앙값 분할·오차 확산은 이 프로젝트에서 구현했으며 외부 라이브러리 코드를 복제하지 않았습니다. `tools/TestPalette`는 배포 소스 파일을 직접 링크해 실제 알고리즘을 실행합니다. Rhino 6 SDK의 `RhinoCommon.XML`에서 StatusBar.ShowProgressMeter/UpdateProgressMeter/HideProgressMeter, SetMessagePane 및 ClearMessagePane를 확인하고 컴파일했습니다.

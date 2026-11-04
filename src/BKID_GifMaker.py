@@ -1,23 +1,58 @@
 # -*- coding: utf-8 -*-
 """Windows Rhino 6/8 IronPython command entry point (RunPythonScript)."""
 import os
+import shutil
 import sys
 import tempfile
+import time
 import traceback
+import uuid
 
 import Rhino
 import rhinoscriptsyntax as rs
 import scriptcontext as sc
 import System
 from System import Array, Byte, Guid, IntPtr
-from System.Drawing import Rectangle
-from System.Drawing.Imaging import ImageLockMode, PixelFormat
+from System.Drawing import Bitmap, Rectangle
+from System.Drawing.Imaging import ImageFormat, ImageLockMode, PixelFormat
 from System.Runtime.InteropServices import Marshal
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from gif_writer import GifWriter, bgra_indices
+from gif_writer import GifWriter
+
+
+class SaveProgress(object):
+    """Native Rhino status bar; only hide a progress meter owned by this run."""
+    def __init__(self, frames):
+        self.frames = frames
+        self.maximum = frames * 4 + 1
+        self.started = time.time()
+        self.active = False
+
+    def start(self):
+        self.active = Rhino.UI.StatusBar.ShowProgressMeter(
+            0, self.maximum, u"GIF 저장 중", True, True) == 1
+        print(u"GIF 저장을 시작합니다. Rhino 하단에서 진행 상황을 확인하세요. (Esc: 취소)")
+
+    def update(self, unit, stage, frame, cancellable=True):
+        percent = min(100, int(100.0 * unit / self.maximum))
+        message = u"GIF {0}% | {1} | 프레임 {2}/{3} | {4:.1f}초 경과".format(
+            percent, stage, frame, self.frames, time.time() - self.started)
+        if self.active:
+            Rhino.UI.StatusBar.UpdateProgressMeter(unit, True)
+            Rhino.UI.StatusBar.SetMessagePane(message)
+        # Let Rhino paint the progress UI before rendering/conversion/encoding.
+        Rhino.RhinoApp.Wait()
+        if cancellable and sc.escape_test(False):
+            raise KeyboardInterrupt()
+
+    def close(self):
+        if self.active:
+            Rhino.UI.StatusBar.HideProgressMeter()
+            self.active = False
+            Rhino.UI.StatusBar.ClearMessagePane()
 
 
 def show_preview(view, seconds, intervals, move_to):
@@ -25,24 +60,34 @@ def show_preview(view, seconds, intervals, move_to):
     return show(view, seconds, intervals, move_to)
 
 
-def bitmap_indices(bitmap):
-    """Read straight-alpha BGRA scanlines, retaining Rhino's alpha mask."""
-    width, height = bitmap.Width, bitmap.Height
-    converted = bitmap.Clone(Rectangle(0, 0, width, height), PixelFormat.Format32bppArgb)
+def quantize_png(path):
+    """Assemble from the saved lossless captures, with an image-specific palette."""
+    import clr
+    assemblies = [item for item in System.AppDomain.CurrentDomain.GetAssemblies()
+                  if item.GetName().Name == "BKID.GifMaker"]
+    if len(assemblies) != 1:
+        raise RuntimeError("Run BKIDGifMakerCapture from the installed GIF Maker plug-in")
+    clr.AddReference(assemblies[0])
+    from BKID.GifMaker import AdaptivePalette
+    bitmap = Bitmap(path)
     try:
-        data = converted.LockBits(Rectangle(0, 0, width, height),
-                                  ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)
+        width, height = bitmap.Width, bitmap.Height
+        converted = bitmap.Clone(Rectangle(0, 0, width, height), PixelFormat.Format32bppArgb)
         try:
-            row = Array.CreateInstance(Byte, width * 4)
-            result = bytearray(width * height)
-            for y in range(height):
-                Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), row, 0, width * 4)
-                result[y * width:(y + 1) * width] = bgra_indices(row, width)
-            return result
+            data = converted.LockBits(Rectangle(0, 0, width, height),
+                                      ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)
+            try:
+                pixels = Array.CreateInstance(Byte, width * height * 4)
+                for y in range(height):
+                    Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), pixels, y * width * 4, width * 4)
+                result = AdaptivePalette.Quantize(pixels, width, height)
+                return bytearray(result.Indices), bytearray(result.Palette)
+            finally:
+                converted.UnlockBits(data)
         finally:
-            converted.UnlockBits(data)
+            converted.Dispose()
     finally:
-        converted.Dispose()
+        bitmap.Dispose()
 
 
 def run():
@@ -81,6 +126,8 @@ def run():
         print(u"GIF 형식의 최대 높이 65535px을 초과합니다. 너비를 줄여 주세요.")
         return False
     temporary = None
+    frame_folder = None
+    save_progress = None
     copies, hidden = [], []
     selected = [item.Id for item in doc.Objects.GetSelectedObjects(False, False)]
     success = False
@@ -114,7 +161,8 @@ def run():
             doc.Views.Redraw()
 
         intervals = max(1, int(round(seconds * fps)))
-        if not show_preview(view, seconds, intervals, move_to):
+        accepted, keep_png = show_preview(view, seconds, intervals, move_to)
+        if not accepted:
             return False
         path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")
         if not path:
@@ -130,39 +178,70 @@ def run():
         capture.ScaleScreenItems = False
         capture.DrawAxes = capture.DrawGrid = capture.DrawGridAxes = False
         capture.TransparentBackground = True
-        # The current camera remains fixed. Frame the entire travel beforehand.
+        save_progress = SaveProgress(intervals + 1)
+        save_progress.start()
+        frame_folder = tempfile.mkdtemp(prefix=".bkid-gif-frames-", dir=os.path.dirname(path))
+        frames = []
+        # First capture every position as an unmodified, full-colour PNG, using
+        # exactly the same ViewCapture settings as AutoCrop before its crop step.
+        for frame in range(intervals + 1):
+            save_progress.update(frame * 2, u"PNG 화면 캡처 중", frame + 1)
+            move_to(float(frame) / intervals)
+            bitmap = capture.CaptureToBitmap(view)
+            if bitmap is None:
+                raise RuntimeError("Rhino ViewCapture returned no image")
+            png = os.path.join(frame_folder, "frame_{0:05d}.png".format(frame))
+            try:
+                save_progress.update(frame * 2 + 1, u"원본 PNG 저장 중", frame + 1)
+                bitmap.Save(png, ImageFormat.Png)
+            finally:
+                bitmap.Dispose()
+            delay = 50 if frame == intervals else max(1, int(round((frame + 1) * seconds * 100 / intervals)) - int(round(frame * seconds * 100 / intervals)))
+            if frame == 0:
+                delay += 50
+            frames.append((png, delay))
+            save_progress.update((frame + 1) * 2, u"PNG 캡처 완료", frame + 1)
+        # Then assemble those saved captures. No Rhino rerender or display/material
+        # override occurs during GIF conversion. Keep memory bounded to one frame.
         with open(temporary, "wb") as output:
             writer = GifWriter(output, width, height, transparent=True)
-            for frame in range(intervals + 1):
-                if sc.escape_test(False):
-                    raise KeyboardInterrupt()
-                progress = float(frame) / intervals
-                move_to(progress)
-                bitmap = capture.CaptureToBitmap(view)
-                if bitmap is None:
-                    raise RuntimeError("Rhino ViewCapture returned no image")
-                try:
-                    # Hold both endpoints for half a second; each interval has
-                    # its own rounded centisecond budget to limit timing drift.
-                    delay = 50 if frame == intervals else max(1, int(round((frame + 1) * seconds * 100 / intervals)) - int(round(frame * seconds * 100 / intervals)))
-                    if frame == 0:
-                        delay += 50
-                    writer.add_frame(bitmap_indices(bitmap), delay)
-                finally:
-                    bitmap.Dispose()
-                Rhino.RhinoApp.WriteLine("GIF {0}/{1}".format(frame + 1, intervals + 1))
+            for frame, (png, delay) in enumerate(frames):
+                unit = len(frames) * 2 + frame * 2
+                save_progress.update(unit, u"캡처 이미지 색상 최적화 중", frame + 1)
+                indices, palette = quantize_png(png)
+                save_progress.update(unit + 1, u"캡처들을 GIF로 합치는 중", frame + 1)
+                writer.add_frame(indices, delay, palette)
+                save_progress.update(unit + 2, u"GIF 프레임 기록 완료", frame + 1)
+                Rhino.RhinoApp.WriteLine(u"GIF 저장 {0}/{1} 프레임 완료".format(frame + 1, intervals + 1))
             writer.finish()
+        save_progress.update((intervals + 1) * 4, u"최종 파일 저장 중", intervals + 1)
         if os.path.exists(path):
             System.IO.File.Replace(temporary, path, None)
         else:
             System.IO.File.Move(temporary, path)
         success = True
+        if keep_png:
+            destination = os.path.splitext(path)[0] + "_PNG"
+            if os.path.exists(destination):
+                destination += "_" + uuid.uuid4().hex[:8]
+            try:
+                os.rename(frame_folder, destination)
+                print(u"원본 PNG 캡처 보관: " + destination)
+            except Exception as error:
+                print(u"PNG 폴더 이동 실패. 원본 캡처는 다음 위치에 보관했습니다: {0} ({1})".format(frame_folder, error))
+            frame_folder = None
+        save_progress.update(save_progress.maximum, u"저장 완료", intervals + 1, False)
         print(u"GIF 저장 완료: {0} ({1} x {2}, {3} frames)".format(path, width, height, intervals + 1))
     except KeyboardInterrupt:
         print(u"GIF 저장을 취소했습니다.")
     except Exception:
         print(traceback.format_exc())
     finally:
+        if save_progress is not None:
+            try:
+                save_progress.close()
+            except Exception as error:
+                print("Could not clear GIF progress display: " + str(error))
         failures = []
         for object_id in copies:
             try:
@@ -184,6 +263,11 @@ def run():
         doc.Views.Redraw()
         if temporary is not None and os.path.exists(temporary):
             os.remove(temporary)
+        if frame_folder is not None and os.path.isdir(frame_folder):
+            try:
+                shutil.rmtree(frame_folder)
+            except Exception as error:
+                print("Could not remove temporary PNG captures {0}: {1}".format(frame_folder, error))
         if failures:
             print("Scene restoration requires attention: " + "; ".join(failures))
             success = False

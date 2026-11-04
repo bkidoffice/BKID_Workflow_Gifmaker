@@ -101,13 +101,15 @@ class GifWriter(object):
                                      (value & 3) * 85))
         stream.write(b"\x21\xff\x0bNETSCAPE2.0\x03\x01\x00\x00\x00")
 
-    def add_frame(self, indices, delay_cs):
+    def add_frame(self, indices, delay_cs, palette=None):
         if self.closed:
             raise ValueError("GIF is already closed")
         if len(indices) != self.width * self.height:
             raise ValueError("Frame dimensions do not match")
         if not 1 <= delay_cs <= 65535:
             raise ValueError("Invalid frame delay")
+        if palette is not None and len(palette) != 768:
+            raise ValueError("A frame palette must contain 256 RGB entries")
         payload = _lzw(indices)
         # Full frames + restore-to-background disposal prevent old part
         # positions showing through transparent pixels of subsequent frames.
@@ -115,7 +117,10 @@ class GifWriter(object):
         self.stream.write(b"\x21\xf9\x04" + struct.pack("B", flags))
         self.stream.write(struct.pack("<HBB", delay_cs,
                                        TRANSPARENT_INDEX if self.transparent else 0, 0))
-        self.stream.write(b"\x2c" + struct.pack("<HHHHB", 0, 0, self.width, self.height, 0))
+        self.stream.write(b"\x2c" + struct.pack("<HHHHB", 0, 0, self.width, self.height,
+                                               135 if palette is not None else 0))
+        if palette is not None:
+            self.stream.write(bytearray(palette))
         self.stream.write(b"\x08")
         for offset in range(0, len(payload), 255):
             block = payload[offset:offset + 255]

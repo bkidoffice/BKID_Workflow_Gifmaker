@@ -88,6 +88,21 @@ class GifTests(unittest.TestCase):
                 for column in range(5):
                     self.assertEqual(rgba.getpixel((column, y))[3], 255 if y == 1 and column == x else 0)
 
+    def test_capture_specific_palettes_keep_surface_colors_and_alpha(self):
+        stream = io.BytesIO()
+        writer = GifWriter(stream, 2, 1, transparent=True)
+        for color in ((125, 129, 133), (205, 210, 215)):
+            palette = bytearray(768)
+            palette[:3] = bytearray(color)
+            writer.add_frame(bytearray([255, 0]), 12, palette)
+        writer.finish()
+        stream.seek(0)
+        image = Image.open(stream)
+        for frame, color in enumerate(((125, 129, 133), (205, 210, 215))):
+            image.seek(frame)
+            self.assertEqual(image.convert('RGBA').getpixel((0, 0))[3], 0)
+            self.assertEqual(image.convert('RGBA').getpixel((1, 0)), color + (255,))
+
 
 if __name__ == "__main__":
     unittest.main()

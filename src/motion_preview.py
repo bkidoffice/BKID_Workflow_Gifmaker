@@ -37,6 +37,7 @@ class MotionPreview(forms.Dialog[bool]):
         self.slider.Width = max(420, self.preview_width)
         self.slider.SnapToTick = False
         self.position = forms.Label()
+        self.keep_png = forms.CheckBox(Text=u"원본 PNG 캡처도 보관 (원본 화질)", Checked=False)
         self.play = forms.Button(Text=u"재생")
         start = forms.Button(Text=u"처음")
         end = forms.Button(Text=u"끝")
@@ -62,6 +63,7 @@ class MotionPreview(forms.Dialog[bool]):
         layout.AddRow(self.slider)
         layout.AddRow(forms.Label(Text=u"시작"), None, forms.Label(Text=u"끝"))
         layout.AddRow(self.position)
+        layout.AddRow(self.keep_png)
         layout.AddRow(start, self.play, end, None, save, cancel)
         self.Content = layout
 
@@ -181,6 +183,6 @@ def show(view, seconds, intervals, move_to):
         accepted = dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
         if dialog.error is not None:
             raise dialog.error
-        return bool(accepted)
+        return bool(accepted), bool(dialog.keep_png.Checked)
     finally:
         dialog.release()

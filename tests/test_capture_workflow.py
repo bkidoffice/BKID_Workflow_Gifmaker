@@ -54,7 +54,7 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False):
         objects = Objects()
         objects.fail_move = fail_move
         view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=1920, Height=1080)))
@@ -63,6 +63,23 @@ class WorkflowTests(unittest.TestCase):
         captured = []
         scrubbed = []
         saves = []
+        meter = {'shown': 0, 'hidden': 0, 'maximum': 0, 'updates': [], 'messages': []}
+
+        class StatusBar:
+            @staticmethod
+            def ShowProgressMeter(lower, upper, label, embed, percent):
+                meter['shown'] += 1
+                meter['maximum'] = upper
+                return 1
+            @staticmethod
+            def UpdateProgressMeter(value, absolute):
+                meter['updates'].append(value)
+            @staticmethod
+            def SetMessagePane(message): meter['messages'].append(message)
+            @staticmethod
+            def HideProgressMeter(): meter['hidden'] += 1
+            @staticmethod
+            def ClearMessagePane(): meter['messages'].append('')
 
         class Capture:
             def CaptureToBitmap(self, ignored):
@@ -70,7 +87,13 @@ class WorkflowTests(unittest.TestCase):
                     raise AssertionError('GIF capture must request Rhino alpha')
                 x = next(o.x for o in objects.items.values() if not o.IsHidden)
                 captured.append(x)
-                return types.SimpleNamespace(x=x, Width=self.Width, Height=self.Height, Dispose=lambda: None)
+                width, height = self.Width, self.Height
+                def save_png(path, image_format):
+                    color = (125, 129, 133, 255) if x == 0 else (205, 210, 215, 255)
+                    image = Image.new('RGBA', (width, height), color)
+                    image.putpixel((0, 0), (0, 0, 0, 0))
+                    image.save(path, 'PNG')
+                return types.SimpleNamespace(x=x, Width=width, Height=height, Save=save_png, Dispose=lambda: None)
 
         calls = [0]
         def escape(ignored):
@@ -86,7 +109,8 @@ class WorkflowTests(unittest.TestCase):
 
         module('Rhino', Display=types.SimpleNamespace(RhinoPageView=type('PageView', (), {}), ViewCapture=Capture),
                Geometry=types.SimpleNamespace(Transform=types.SimpleNamespace(Identity=Vector(0), Translation=lambda v: v)),
-               RhinoApp=types.SimpleNamespace(WriteLine=lambda msg: None))
+               RhinoApp=types.SimpleNamespace(WriteLine=lambda msg: None, Wait=lambda: None),
+               UI=types.SimpleNamespace(StatusBar=StatusBar))
         points = iter((Vector(0), Vector(10)))
         integer_calls = []
         def get_integer(*args):
@@ -102,22 +126,36 @@ class WorkflowTests(unittest.TestCase):
         module('scriptcontext', doc=doc, escape_test=escape)
         module('System', Array=None, Byte=None, Guid=types.SimpleNamespace(Empty=0), IntPtr=None,
                IO=types.SimpleNamespace(File=types.SimpleNamespace(Replace=lambda a, b, c: Path(a).replace(b), Move=lambda a, b: Path(a).rename(b))))
-        module('System.Drawing', Rectangle=None)
-        module('System.Drawing.Imaging', ImageLockMode=None, PixelFormat=None)
+        module('System.Drawing', Bitmap=None, Rectangle=None)
+        module('System.Drawing.Imaging', ImageFormat=types.SimpleNamespace(Png='PNG'), ImageLockMode=None, PixelFormat=None)
         module('System.Runtime.InteropServices', Marshal=None)
         source = Path(__file__).resolve().parents[1] / 'src/BKID_GifMaker.py'
         with patch.dict(sys.modules, modules), contextlib.redirect_stdout(io.StringIO()):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
-            capture.bitmap_indices = lambda bitmap: bytearray([255] + [224 if bitmap.x == 0 else 3] * (bitmap.Width * bitmap.Height - 1))
+            def quantize_png(png):
+                # The real adaptive quantizer is exercised by TestPalette. This
+                # integration check proves all PNGs exist before assembly and
+                # verifies the GIF consumes their captured pixels, not a render.
+                self.assertEqual(len(captured), 2)
+                if encoder_error:
+                    raise RuntimeError('Could not assemble PNG captures')
+                with Image.open(png) as image:
+                    image = image.convert('RGBA')
+                    self.assertEqual(image.getpixel((0, 0))[3], 0)
+                    rgb = image.getpixel((1, 0))[:3]
+                    palette = bytearray(768)
+                    palette[:3] = bytearray(rgb)
+                    return bytearray([255] + [0] * (image.width * image.height - 1)), palette
+            capture.quantize_png = quantize_png
             def preview(view, seconds, intervals, move_to):
                 for value in preview_positions:
                     move_to(value)
                     scrubbed.append(next(o.x for o in objects.items.values() if not o.IsHidden))
                 if preview_error:
                     raise RuntimeError('Preview render failed')
-                return preview_accept
+                return preview_accept, keep_png
             capture.show_preview = preview
             result = capture.run()
         self.assertEqual(list(objects.items), [1])
@@ -127,6 +165,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(list(path.parent.glob('.bkid-gif-*')), [])
         self.assertEqual(scrubbed, [10 * value for value in preview_positions])
         self.assertEqual(len(saves), 0 if not preview_accept or preview_error else 1)
+        self.assertEqual(meter['shown'], meter['hidden'])
+        self.assertEqual(meter['updates'], sorted(meter['updates']))
+        if result:
+            self.assertEqual(meter['updates'][-1], meter['maximum'])
+            self.assertTrue(any('100%' in message for message in meter['messages']))
+            self.assertTrue(any('GIF' in message and '프레임' in message for message in meter['messages']))
+        elif meter['shown']:
+            self.assertTrue(all(value < meter['maximum'] for value in meter['updates']))
         return result, captured
 
     def test_saves_start_end_and_restores_scene(self):
@@ -141,8 +187,10 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(image.info['duration'], 700)
                 self.assertEqual(image.convert('RGBA').getpixel((0, 0))[3], 0)
                 self.assertEqual(image.convert('RGBA').getpixel((1, 0))[3], 255)
+                self.assertEqual(image.convert('RGBA').getpixel((1, 0))[:3], (125, 129, 133))
                 image.seek(1)
                 self.assertEqual(image.info['duration'], 500)
+                self.assertEqual(image.convert('RGBA').getpixel((1, 0))[:3], (205, 210, 215))
 
     def test_cancel_preserves_existing_output(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -190,6 +238,25 @@ class WorkflowTests(unittest.TestCase):
             self.assertFalse(result)
             self.assertEqual(positions, [])
             self.assertFalse(path.exists())
+
+    def test_png_assembly_failure_preserves_existing_file_and_cleans_progress(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'existing.gif'
+            path.write_bytes(b'previous output')
+            result, positions = self.run_capture(path, encoder_error=True)
+            self.assertFalse(result)
+            self.assertEqual(positions, [0, 10])
+            self.assertEqual(path.read_bytes(), b'previous output')
+
+    def test_optional_png_capture_sequence_is_retained_losslessly(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'original.gif'
+            result, _ = self.run_capture(path, keep_png=True)
+            self.assertTrue(result)
+            frames = sorted((path.parent / 'original_PNG').glob('*.png'))
+            self.assertEqual(len(frames), 2)
+            with Image.open(frames[0]) as image:
+                self.assertEqual(image.convert('RGBA').getpixel((1, 0)), (125, 129, 133, 255))
 
 
 if __name__ == '__main__':
