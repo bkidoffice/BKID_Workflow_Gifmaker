@@ -57,9 +57,9 @@ namespace BKID.GifMaker
         }
         internal string PrepareScript()
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.5.0");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.6.0");
             Directory.CreateDirectory(folder);
-            foreach (var name in new[] { "BKID_GifMaker.py", "ffmpeg_encoder.py", "motion_preview.py" })
+            foreach (var name in new[] { "BKID_GifMaker.py", "ffmpeg_encoder.py", "motion_preview.py", "motion_sequence.py" })
             {
                 var resource = name == "BKID_GifMaker.py" ? "BKID.GifMaker.Capture.py" : "BKID.GifMaker." + name;
                 using (var input = GetType().Assembly.GetManifestResourceStream(resource))

@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from ffmpeg_encoder import encode_frames
+from motion_sequence import SceneSequence, frame_times
 
 
 class SaveProgress(object):
@@ -65,9 +66,25 @@ def pick_datum_motion(doc, ids):
     return result if result.Accepted else None
 
 
-def show_preview(view, seconds, intervals, move_to, datum_summary=None):
+def pick_parts(doc, allow_finish, excluded):
+    import clr
+    assemblies = [item for item in System.AppDomain.CurrentDomain.GetAssemblies()
+                  if item.GetName().Name == "BKID.GifMaker"]
+    if len(assemblies) != 1:
+        raise RuntimeError("Use the installed BKIDGifMakerCapture command")
+    clr.AddReference(assemblies[0])
+    from BKID.GifMaker import PartSequenceSelector
+    result = PartSequenceSelector.Pick(allow_finish, System.Array[Guid](excluded))
+    if result.Cancelled:
+        return 'cancel', []
+    if result.Finished:
+        return 'finish', []
+    return 'parts', list(result.ObjectIds)
+
+
+def show_preview(view, seconds, intervals, move_to, datum_summary=None, samples=None):
     from motion_preview import show
-    return show(view, seconds, intervals, move_to, datum_summary)
+    return show(view, seconds, intervals, move_to, datum_summary, samples)
 
 
 def run():
@@ -76,75 +93,51 @@ def run():
     if view is None or isinstance(view, Rhino.Display.RhinoPageView):
         print(u"모델 뷰포트에서 실행해 주세요.")
         return False
-    ids = rs.GetObjects(u"Datum CSYS로 이동할 부품을 선택하세요", preselect=True)
-    if not ids:
-        return False
-    try:
-        datum_motion = pick_datum_motion(doc, ids)
-    except Exception:
-        print(traceback.format_exc())
-        return False
-    if datum_motion is None:
-        return False
-    vector = datum_motion.WorldTranslation
-    datum_summary = datum_motion.Summary
-    print(datum_summary)
-    if vector.Length <= doc.ModelAbsoluteTolerance:
-        print(u"Datum 이동량이 문서 공차보다 작습니다.")
-        return False
-    seconds = rs.GetReal(u"이동 시간 (초)", 2.0, 0.2, 10.0)
-    if seconds is None:
-        return False
-    fps = rs.GetInteger(u"초당 프레임 수", 15, 5, 30)
-    if fps is None:
-        return False
-    viewport_size = view.ActiveViewport.Size
-    # Same pre-crop pixel dimensions as AutoCrop capture_scale=1.0.
-    width = rs.GetInteger(u"GIF 너비 (px, Enter = 현재 뷰포트 1배율)",
-                          max(1, int(viewport_size.Width)), 1, 65535)
-    if width is None:
-        return False
-    height = max(1, int(round(width * float(viewport_size.Height) / max(1, viewport_size.Width))))
-    if height > 65535:
-        print(u"GIF 형식의 최대 높이 65535px을 초과합니다. 너비를 줄여 주세요.")
-        return False
     temporary = None
     frame_folder = None
     save_progress = None
-    copies, hidden = [], []
+    scene = SceneSequence(doc)
     selected = [item.Id for item in doc.Objects.GetSelectedObjects(False, False)]
     success = False
     try:
-        for object_id in ids:
-            original = doc.Objects.FindId(object_id)
-            if original is None or original.IsLocked or original.IsHidden:
-                raise RuntimeError("Selected object is unavailable, hidden or locked: " + str(object_id))
-            copy_id = doc.Objects.Transform(object_id, Rhino.Geometry.Transform.Identity, False)
-            if copy_id == Guid.Empty:
-                raise RuntimeError("Could not copy object: " + str(object_id))
-            copies.append(copy_id)
-            if not doc.Objects.Hide(object_id, False):
-                raise RuntimeError("Could not hide source object: " + str(object_id))
-            hidden.append(object_id)
-        doc.Objects.UnselectAll()
-        position = [0.0]
-
-        def move_to(progress):
-            if progress < 0.0 or progress > 1.0:
-                raise ValueError("Timeline position must be in 0..1")
-            delta = progress - position[0]
-            if delta:
-                transform = Rhino.Geometry.Transform.Translation(vector * delta)
-                for index in range(len(copies)):
-                    moved = doc.Objects.Transform(copies[index], transform, True)
-                    if moved == Guid.Empty:
-                        raise RuntimeError("Could not move animation copy")
-                    copies[index] = moved
-                position[0] = progress
-            doc.Views.Redraw()
-
-        intervals = max(1, int(round(seconds * fps)))
-        accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary)
+        while True:
+            action, ids = pick_parts(doc, bool(scene.steps), scene.copy_ids)
+            if action == 'cancel':
+                return False
+            if action == 'finish':
+                if scene.steps:
+                    break
+                return False
+            datum_motion = pick_datum_motion(doc, ids)
+            if datum_motion is None:
+                return False
+            if datum_motion.WorldTranslation.Length <= doc.ModelAbsoluteTolerance:
+                print(u"Datum 이동량이 문서 공차보다 작습니다.")
+                return False
+            duration = rs.GetReal(u"{0}번째 부품 이동 시간 (초)".format(len(scene.steps) + 1), 2.0, 0.2, 10.0)
+            if duration is None:
+                return False
+            scene.add(ids, datum_motion.WorldTranslation, duration, datum_motion.Summary)
+            print(u"{0}단계 완료: {1}".format(len(scene.steps), datum_motion.Summary))
+        seconds = sum(scene.durations)
+        fps = rs.GetInteger(u"초당 프레임 수", 15, 5, 30)
+        if fps is None:
+            return False
+        viewport_size = view.ActiveViewport.Size
+        width = rs.GetInteger(u"GIF 너비 (px, Enter = 현재 뷰포트 1배율)",
+                              max(1, int(viewport_size.Width)), 1, 65535)
+        if width is None:
+            return False
+        height = max(1, int(round(width * float(viewport_size.Height) / max(1, viewport_size.Width))))
+        if height > 65535:
+            print(u"GIF 형식의 최대 높이 65535px을 초과합니다. 너비를 줄여 주세요.")
+            return False
+        samples = frame_times(scene.durations, fps)
+        intervals = len(samples) - 1
+        move_to = scene.seek
+        datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 else u"순차 이동 {0}단계 · 총 {1:.2f}초".format(len(scene.steps), seconds)
+        move_to(0.0)
+        accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary, samples)
         if not accepted:
             return False
         path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")
@@ -169,7 +162,7 @@ def run():
         # exactly the same ViewCapture settings as AutoCrop before its crop step.
         for frame in range(intervals + 1):
             save_progress.update(frame * 2, u"PNG 화면 캡처 중", frame + 1)
-            move_to(float(frame) / intervals)
+            move_to(samples[frame] / seconds)
             bitmap = capture.CaptureToBitmap(view)
             if bitmap is None:
                 raise RuntimeError("Rhino ViewCapture returned no image")
@@ -179,7 +172,7 @@ def run():
                 bitmap.Save(png, ImageFormat.Png)
             finally:
                 bitmap.Dispose()
-            delay = 50 if frame == intervals else max(1, int(round((frame + 1) * seconds * 100 / intervals)) - int(round(frame * seconds * 100 / intervals)))
+            delay = 50 if frame == intervals else max(1, int(round(samples[frame + 1] * 100)) - int(round(samples[frame] * 100)))
             if frame == 0:
                 delay += 50
             frames.append((png, delay))
@@ -215,19 +208,7 @@ def run():
                 save_progress.close()
             except Exception as error:
                 print("Could not clear GIF progress display: " + str(error))
-        failures = []
-        for object_id in copies:
-            try:
-                if not doc.Objects.Delete(object_id, True):
-                    failures.append("delete copy " + str(object_id))
-            except Exception as error:
-                failures.append("delete copy {0}: {1}".format(object_id, error))
-        for object_id in hidden:
-            try:
-                if not doc.Objects.Show(object_id, False):
-                    failures.append("show source " + str(object_id))
-            except Exception as error:
-                failures.append("show source {0}: {1}".format(object_id, error))
+        failures = scene.restore()
         doc.Objects.UnselectAll()
         for object_id in selected:
             obj = doc.Objects.FindId(object_id)

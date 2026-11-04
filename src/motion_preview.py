@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Eto preview dialog for the Windows Rhino IronPython command."""
 import clr
+import bisect
 clr.AddReference("Eto")
 clr.AddReference("Rhino.UI")
 import System
@@ -11,11 +12,12 @@ from System.Drawing.Imaging import ImageFormat
 
 
 class MotionPreview(forms.Dialog[bool]):
-    def __init__(self, view, seconds, intervals, move_to, datum_summary=None):
+    def __init__(self, view, seconds, intervals, move_to, datum_summary=None, samples=None):
         self.Title = u"BKID GIF Maker - 이동 미리보기"
         self.Resizable = False
         self.Padding = drawing.Padding(16)
         self.seconds, self.intervals = seconds, intervals
+        self.samples = samples if samples is not None else [seconds * float(i) / intervals for i in range(intervals + 1)]
         self.move_to = move_to
         self.view = view
         self.error = None
@@ -97,7 +99,7 @@ class MotionPreview(forms.Dialog[bool]):
         bitmap, stream, image = None, None, None
         try:
             frame = int(self.slider.Value)
-            progress = float(frame) / self.intervals
+            progress = self.samples[frame] / self.seconds
             self.move_to(progress)
             self.position.Text = u"{0:.2f} / {1:.2f} 초    |    {2:.0f}%    |    프레임 {3} / {4}".format(
                 progress * self.seconds, self.seconds, progress * 100, frame + 1, self.intervals + 1)
@@ -140,7 +142,7 @@ class MotionPreview(forms.Dialog[bool]):
             return
         if self.slider.Value == self.intervals:
             self.seek(0)
-        self.play_start = float(self.slider.Value) / self.intervals * self.seconds
+        self.play_start = self.samples[int(self.slider.Value)]
         self.clock = System.Diagnostics.Stopwatch.StartNew()
         self.play.Text = u"일시정지"
         self.timer.Start()
@@ -149,7 +151,7 @@ class MotionPreview(forms.Dialog[bool]):
         if self.busy or self.clock is None:
             return
         elapsed = self.play_start + self.clock.Elapsed.TotalSeconds
-        frame = min(self.intervals, int(elapsed / self.seconds * self.intervals))
+        frame = max(0, min(self.intervals, bisect.bisect_right(self.samples, elapsed) - 1))
         self.timer_update = True
         try:
             self.slider.Value = frame
@@ -179,8 +181,8 @@ class MotionPreview(forms.Dialog[bool]):
         self.Dispose()
 
 
-def show(view, seconds, intervals, move_to, datum_summary=None):
-    dialog = MotionPreview(view, seconds, intervals, move_to, datum_summary)
+def show(view, seconds, intervals, move_to, datum_summary=None, samples=None):
+    dialog = MotionPreview(view, seconds, intervals, move_to, datum_summary, samples)
     try:
         accepted = dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
         if dialog.error is not None:

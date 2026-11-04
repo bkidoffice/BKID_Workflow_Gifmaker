@@ -10,8 +10,8 @@ using var pe = new PEReader(input);
 if (!pe.HasMetadata) throw new Exception("The RHP is not a compiled .NET assembly.");
 var reader = pe.GetMetadataReader();
 var assembly = reader.GetAssemblyDefinition();
-if (reader.GetString(assembly.Name) != (setup ? "BKID_GifMaker_Setup_1.5.0" : "BKID.GifMaker")) throw new Exception("Wrong assembly identity.");
-if (assembly.Version != new Version(1, 5, 0, 0)) throw new Exception("Wrong assembly version.");
+if (reader.GetString(assembly.Name) != (setup ? "BKID_GifMaker_Setup_1.6.0" : "BKID.GifMaker")) throw new Exception("Wrong assembly identity.");
+if (assembly.Version != new Version(1, 6, 0, 0)) throw new Exception("Wrong assembly version.");
 bool validGuid = false;
 foreach (var handle in assembly.GetCustomAttributes())
 {
@@ -52,6 +52,7 @@ if (!resources["BKID.GifMaker.ffmpeg_encoder.py"].SequenceEqual(File.ReadAllByte
 if (resources.ContainsKey("BKID.GifMaker.gif_writer.py")) throw new Exception("Legacy GIF writer must not be shipped.");
 if (!resources.ContainsKey("BKID.GifMaker.FFmpeg.xml")) throw new Exception("Missing verified converter manifest.");
 if (!resources["BKID.GifMaker.motion_preview.py"].SequenceEqual(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(args[1])!, "motion_preview.py")))) throw new Exception("Embedded motion preview differs from source.");
+if (!resources["BKID.GifMaker.motion_sequence.py"].SequenceEqual(File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(args[1])!, "motion_sequence.py")))) throw new Exception("Embedded sequence differs from source.");
 if (!resources["BKID.GifMaker.Icon.png"].SequenceEqual(File.ReadAllBytes(args[2])))
     throw new Exception("Embedded logo differs from repository asset.");
 var versions = reader.AssemblyReferences.Select(h => reader.GetAssemblyReference(h))

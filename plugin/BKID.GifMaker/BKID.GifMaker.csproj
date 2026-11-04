@@ -4,7 +4,7 @@
     <TargetExt>.rhp</TargetExt>
     <AssemblyName>BKID.GifMaker</AssemblyName>
     <RootNamespace>BKID.GifMaker</RootNamespace>
-    <Version>1.5.0</Version>
+    <Version>1.6.0</Version>
     <AssemblyTitle>BKID GifMaker</AssemblyTitle>
     <Description>Linear part motion GIF capture with a native BKID toolbar.</Description>
     <Company>BKID</Company>
@@ -25,6 +25,7 @@
     <EmbeddedResource Include="../../src/ffmpeg_encoder.py" LogicalName="BKID.GifMaker.ffmpeg_encoder.py" />
     <EmbeddedResource Include="../../third_party/ffmpeg/manifest.xml" LogicalName="BKID.GifMaker.FFmpeg.xml" />
     <EmbeddedResource Include="../../src/motion_preview.py" LogicalName="BKID.GifMaker.motion_preview.py" />
+    <EmbeddedResource Include="../../src/motion_sequence.py" LogicalName="BKID.GifMaker.motion_sequence.py" />
     <EmbeddedResource Include="Toolbar/BKID.GifMaker.rui" LogicalName="BKID.GifMaker.Toolbar.rui" />
   </ItemGroup>
 </Project>

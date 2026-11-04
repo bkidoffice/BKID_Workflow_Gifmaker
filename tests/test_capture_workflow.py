@@ -27,8 +27,9 @@ class Vector:
 
 class Obj:
     IsLocked = False
-    def __init__(self, key, x=0):
+    def __init__(self, key, x=0, root=None):
         self.Id, self.x, self.IsHidden, self.selected = key, x, False, True
+        self.root = key if root is None else root
     def Select(self, selected): self.selected = selected
 
 
@@ -44,7 +45,7 @@ class Objects:
         original = self.items[key]
         key2 = self.next_id
         self.next_id += 1
-        self.items[key2] = Obj(key2, original.x + delta.x)
+        self.items[key2] = Obj(key2, original.x + delta.x, original.root)
         self.items[key2].selected = False
         if delete: del self.items[key]
         return key2
@@ -56,8 +57,12 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False):
         objects = Objects()
+        if sequence:
+            objects.items[2] = Obj(2, 100)
+            objects.items[2].selected = False
+            objects.next_id = 3
         objects.fail_move = fail_move
         view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=1920, Height=1080)))
         doc = types.SimpleNamespace(Objects=objects, ModelAbsoluteTolerance=.001,
@@ -87,13 +92,15 @@ class WorkflowTests(unittest.TestCase):
             def CaptureToBitmap(self, ignored):
                 if not self.TransparentBackground:
                     raise AssertionError('GIF capture must request Rhino alpha')
-                x = next(o.x for o in objects.items.values() if not o.IsHidden)
-                captured.append(x)
+                states = {o.root: o.x for o in objects.items.values() if not o.IsHidden}
+                x = states[1]
+                captured.append((x, states[2]) if sequence else x)
                 width, height = self.Width, self.Height
                 def save_png(path, image_format):
                     color = (125, 129, 133, 255) if x == 0 else (205, 210, 215, 255)
                     image = Image.new('RGBA', (width, height), color)
                     image.putpixel((0, 0), (0, 0, 0, 0))
+                    if sequence: image.putpixel((2, 0), (int(states[2]), 0, 0, 255))
                     image.save(path, 'PNG')
                 return types.SimpleNamespace(x=x, Width=width, Height=height, Save=save_png, Dispose=lambda: None)
 
@@ -136,12 +143,27 @@ class WorkflowTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
-            capture.pick_datum_motion = lambda doc, ids: None if datum_cancel else types.SimpleNamespace(
-                WorldTranslation=Vector(10), Summary='Datum X:10 Y:0 Z:0')
+            selections = iter((('parts', [1]), ('cancel', [])) if cancel_next else
+                              (('parts', [1]), ('parts', [2]), ('finish', [])) if sequence else
+                              (('parts', [1]), ('finish', [])))
+            selection_count = [0]
+            def choose(doc, allow_finish, excluded):
+                selection_count[0] += 1
+                if selection_count[0] == 2:
+                    # The first part is visibly at its endpoint when the next
+                    # part picker opens. Its animation copies cannot be picked.
+                    first = next(o for o in objects.items.values() if o.root == 1 and not o.IsHidden)
+                    self.assertAlmostEqual(first.x, 10)
+                    self.assertIn(first.Id, excluded)
+                    self.assertTrue(allow_finish)
+                return next(selections)
+            capture.pick_parts = choose
+            capture.pick_datum_motion = lambda doc, ids: None if datum_cancel or (cancel_second_datum and ids == [2]) else types.SimpleNamespace(
+                WorldTranslation=Vector(10 if ids == [1] else 20), Summary='Datum X:10 Y:0 Z:0')
             from ffmpeg_encoder import encode_frames
             def assemble(frames, output, progress):
                 # Exercise the actual FFmpeg commands against the captured PNGs.
-                self.assertEqual(len(captured), 2)
+                self.assertEqual(len(captured), 3 if sequence else 2)
                 if encoder_error:
                     raise RuntimeError('Could not assemble PNG captures')
                 def run(executable, arguments, directory, report):
@@ -152,23 +174,35 @@ class WorkflowTests(unittest.TestCase):
                         if line.startswith('frame='): report(int(line.split('=', 1)[1]))
                 encode_frames(frames, output, progress, executable=shutil.which('ffmpeg'), run_job=run)
             capture.encode_frames = assemble
-            def preview(view, seconds, intervals, move_to, datum_summary=None):
-                self.assertEqual(datum_summary, 'Datum X:10 Y:0 Z:0')
+            def preview(view, seconds, intervals, move_to, datum_summary=None, samples=None):
+                if sequence:
+                    self.assertIn('2', datum_summary)
+                    self.assertEqual(samples, [0, .2, .4])
+                else:
+                    self.assertEqual(datum_summary, 'Datum X:10 Y:0 Z:0')
                 for value in preview_positions:
                     move_to(value)
-                    scrubbed.append(next(o.x for o in objects.items.values() if not o.IsHidden))
+                    states = {o.root: o.x for o in objects.items.values() if not o.IsHidden}
+                    scrubbed.append((states[1], states[2]) if sequence else states[1])
                 if preview_error:
                     raise RuntimeError('Preview render failed')
                 return preview_accept, keep_png
             capture.show_preview = preview
             result = capture.run()
-        self.assertEqual(list(objects.items), [1])
+        self.assertEqual(list(objects.items), [1, 2] if sequence else [1])
         self.assertEqual(objects.items[1].x, 0)
         self.assertFalse(objects.items[1].IsHidden)
         self.assertTrue(objects.items[1].selected)
         self.assertEqual(list(path.parent.glob('.bkid-gif-*')), [])
-        self.assertEqual(scrubbed, [10 * value for value in preview_positions])
-        self.assertEqual(len(saves), 0 if datum_cancel or not preview_accept or preview_error else 1)
+        if sequence:
+            self.assertEqual(objects.items[2].x, 100)
+            self.assertFalse(objects.items[2].IsHidden)
+            for actual, value in zip(scrubbed, preview_positions):
+                self.assertAlmostEqual(actual[0], 10 * min(1, value * 2))
+                self.assertAlmostEqual(actual[1], 100 + 20 * max(0, value * 2 - 1))
+        else:
+            for actual, value in zip(scrubbed, preview_positions): self.assertAlmostEqual(actual, 10 * value)
+        self.assertEqual(len(saves), 0 if datum_cancel or fail_move or cancel_next or cancel_second_datum or not preview_accept or preview_error else 1)
         self.assertEqual(meter['shown'], meter['hidden'])
         self.assertEqual(meter['updates'], sorted(meter['updates']))
         if result:
@@ -268,6 +302,29 @@ class WorkflowTests(unittest.TestCase):
             result, positions = self.run_capture(path, datum_cancel=True)
             self.assertFalse(result)
             self.assertEqual(positions, [])
+            self.assertFalse(path.exists())
+
+    def test_add_second_part_then_scrub_and_export_sequential_moves(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'sequence.gif'
+            result, positions = self.run_capture(path, sequence=True, preview_positions=(.25, .5, .75, 1, 0, .5))
+            self.assertTrue(result)
+            for actual, expected in zip(positions, ((0, 100), (10, 100), (10, 120))):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
+            with Image.open(path) as gif: self.assertEqual(gif.n_frames, 3)
+
+    def test_cancel_next_part_selection_restores_completed_part(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'cancel.gif'
+            result, _ = self.run_capture(path, cancel_next=True)
+            self.assertFalse(result)
+            self.assertFalse(path.exists())
+
+    def test_cancel_second_datum_restores_all_previous_parts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'cancel.gif'
+            result, _ = self.run_capture(path, sequence=True, cancel_second_datum=True)
+            self.assertFalse(result)
             self.assertFalse(path.exists())
 
 
