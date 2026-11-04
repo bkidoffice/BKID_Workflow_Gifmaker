@@ -17,13 +17,22 @@ namespace BKID.GifMaker
         public override PlugInLoadTime LoadTime { get { return PlugInLoadTime.AtStartup; } }
         protected override LoadReturnCode OnLoad(ref string errorMessage)
         {
-            if (!Settings.GetBool("NativeToolbarInitialized", false)) RhinoApp.Idle += OnIdle;
+            if (!Settings.GetBool("NativeToolbarInitialized", false) || Settings.GetString("ArtworkRevision", "") != "autocrop-frame-1") RhinoApp.Idle += OnIdle;
             return LoadReturnCode.Success;
         }
         private void OnIdle(object sender, EventArgs e)
         {
             if (RhinoDoc.ActiveDoc == null || RhinoApp.MainWindowHandle() == IntPtr.Zero) return;
-            try { ShowToolbar(); RhinoApp.Idle -= OnIdle; }
+            try
+            {
+                if (Settings.GetString("ArtworkRevision", "") != "autocrop-frame-1")
+                {
+                    ToolbarArtwork.Refresh(GetType().Assembly);
+                    Settings.SetString("ArtworkRevision", "autocrop-frame-1");
+                }
+                if (!Settings.GetBool("NativeToolbarInitialized", false)) ShowToolbar();
+                RhinoApp.Idle -= OnIdle;
+            }
             catch (Exception error)
             {
                 if (++attempts < 5) return;
@@ -45,7 +54,7 @@ namespace BKID.GifMaker
         }
         internal string PrepareScript()
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.0.0");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.0.1");
             Directory.CreateDirectory(folder);
             foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py" })
             {

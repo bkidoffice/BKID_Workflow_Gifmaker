@@ -4,7 +4,7 @@
     <TargetExt>.rhp</TargetExt>
     <AssemblyName>BKID.GifMaker</AssemblyName>
     <RootNamespace>BKID.GifMaker</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <AssemblyTitle>BKID GifMaker</AssemblyTitle>
     <Description>Linear part motion GIF capture with a native BKID toolbar.</Description>
     <Company>BKID</Company>
@@ -21,5 +21,6 @@
     <EmbeddedResource Include="../../src/BKID_GifMaker.py" LogicalName="BKID.GifMaker.Capture.py" />
     <EmbeddedResource Include="../../assets/icon_64.png" LogicalName="BKID.GifMaker.Icon.png" />
     <EmbeddedResource Include="../../src/gif_writer.py" LogicalName="BKID.GifMaker.gif_writer.py" />
+    <EmbeddedResource Include="Toolbar/BKID.GifMaker.rui" LogicalName="BKID.GifMaker.Toolbar.rui" />
   </ItemGroup>
 </Project>

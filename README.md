@@ -1,18 +1,18 @@
-# BKID Workflowboost GIF Maker 1.0.0
+# BKID Workflowboost GIF Maker 1.0.1
 
 Windows Rhino에서 선택한 부품을 시작점 → 끝점까지 직선 이동시키며 GIF로 저장하는 도구입니다. 원본은 시작 위치에 유지하고 임시 복사본으로 애니메이션을 만듭니다. `.3dm` 파트는 Rhino 문서로 가져오거나 블록으로 삽입한 뒤 선택하세요.
 
 ## 설치
 
 1. Rhino를 모두 종료합니다.
-2. `installers/BKID_GifMaker_Setup_1.0.0.exe`를 실행합니다.
+2. `installers/BKID_GifMaker_Setup_1.0.1.exe`를 실행합니다.
 3. 설치 버튼을 누르고 Rhino Installer에서 **현재 사용자** 설치를 선택합니다.
 4. Rhino를 실행합니다. 최초 실행 시 GIF Maker 아이콘이 있는 `BKID Workflowboost` 툴바가 표시됩니다. 이후 도킹·표시 상태는 Rhino 설정을 따릅니다.
 5. 툴바를 다시 열려면 `BKIDGifMaker`, 직접 실행하려면 `BKIDGifMakerCapture` 명령을 입력합니다.
 
 EXE는 기존 AutoCrop과 같은 설치 창·재설치 확인·RHI 실행·결과 파일 검증 방식을 사용합니다. 재설치에서 **아니오**를 선택하면 기존 파일을 유지합니다. **예**를 선택하면 GIF Maker의 기존 관리 파일을 삭제한 후 설치하며, 취소·실패 시 이전 버전을 자동 복원하지 않습니다. AutoCrop은 별도 플러그인 GUID로 유지됩니다. 설치 EXE에는 코드 서명이 없습니다.
 
-대체 설치: `installers/BKID_GifMaker_1.0.0.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
+대체 설치: `installers/BKID_GifMaker_1.0.1.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
 
 ## 사용
 
@@ -49,3 +49,7 @@ python -m unittest discover -s tests -v
 - AutoCrop과 동시 설치, 재설치 취소/승인, Rhino Installer 실행 결과
 
 구현 근거와 재사용 범위는 [docs/SOURCES.md](docs/SOURCES.md)에 기록했습니다.
+
+## 1.0.1 아이콘 수정
+
+AutoCrop 원본 SVG 프레임 좌표·두께·여백과 `#0645F5` 색상을 그대로 사용합니다. `python tools/build_icons.py`는 아이콘을 생성하고 16·24·32·64px에서 모든 프레임 픽셀을 원본과 비교합니다. 기존 GIF Maker 툴바는 최초 업데이트 시 그림을 다시 읽으며 도킹·표시 상태를 보존합니다. 추가 아이콘이 있는 사용자 편집 비트맵 스트립은 자동 교체하지 않고 명령창에 안내합니다. 실제 Rhino에서의 캐시 갱신은 미검증입니다.

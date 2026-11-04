@@ -19,3 +19,5 @@
 - RhinoCommon NuGet `6.0.18016.23451` 참조 어셈블리로 `ViewCapture`, `FindId`, `Transform`, `Hide`, `Show`, `Delete`, 선택 복원 및 툴바 생명주기를 컴파일 검증했습니다.
 
 GIF89a 인코더는 이 프로젝트에서 구현했습니다. 256색 고정 팔레트, 9-bit LZW 사전의 조기 초기화, NETSCAPE 반복 확장을 사용합니다. Pillow는 개발 테스트에서 결과 GIF를 독립적으로 디코딩하는 용도로만 사용하며 플러그인에 배포하지 않습니다.
+
+1.0.1: 원본 AutoCrop SVG를 `assets/AutoCrop_Reference.svg`로 보존하고 파란 프레임 path를 그대로 사용한 벡터 아이콘으로 정규화했습니다. 동일한 CairoSVG 렌더링에서 16·24·32·64px의 모든 프레임 픽셀을 비교했습니다. 속도선 역시 `#0645F5`를 사용합니다. GIF Maker 소유 툴바의 단일 이미지 스트립만 한 번 갱신하며 저장된 도킹·표시 상태와 나머지 XML을 유지합니다.

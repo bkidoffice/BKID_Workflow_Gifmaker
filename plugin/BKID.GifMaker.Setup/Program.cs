@@ -41,7 +41,7 @@ namespace BKID.GifMaker.Setup
         private bool busy;
         public SetupWindow()
         {
-            Text = "BKID Workflowboost GIF Maker 1.0.0 설치";
+            Text = "BKID Workflowboost GIF Maker 1.0.1 설치";
             ClientSize = new Size(760, 420);
             Padding = new Padding(0);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -165,7 +165,7 @@ namespace BKID.GifMaker.Setup
 
         private void Install(string temporary, bool replacementAllowed)
         {
-            string package = Path.Combine(temporary, "BKID_GifMaker_1.0.0.rhi");
+            string package = Path.Combine(temporary, "BKID_GifMaker_1.0.1.rhi");
             using (var input = Assembly.GetExecutingAssembly().GetManifestResourceStream("BKID.Setup.Package.rhi"))
             using (var output = File.Create(package)) input.CopyTo(output);
             byte[] expectedPlugin;
@@ -204,7 +204,7 @@ namespace BKID.GifMaker.Setup
             foreach (var version in new[] { "6", "8" })
             foreach (var name in new[] { "BKID_GifMaker.py", "Show_GifMaker.py", "BKID_GifMaker.rui", "assets/BKID_GifMaker_Icon.svg", "assets/icon_32.png" })
                 files.Add(Path.Combine(roaming, "BKID", "GifMaker", "Rhino" + version, name.Replace('/', Path.DirectorySeparatorChar)));
-            foreach (var version in new[] { "1.0.0" })
+            foreach (var version in new[] { "1.0.1" })
             foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py" })
                 files.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", version, name));
             managed.Validate(files);
