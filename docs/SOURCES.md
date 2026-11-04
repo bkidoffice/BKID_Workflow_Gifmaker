@@ -41,3 +41,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 프레임별 적�
 1.8.0: Rhino GetNumber/회전축 GetOption으로 상단 명령창 각도 입력을 추가하고, Eto NumericStepper의 ValueChanged로 미리보기 상단 각도를 편집합니다. SceneSequence가 이전 자세를 제거한 뒤 새 각도·후속 로컬 축을 재계산하고 완료 자세를 갱신합니다. 실제 GIF 생성 통합 테스트와 기존 SDK 컴파일 검사에 포함했습니다.
 
 1.9.0: Datum Both는 기존 이동·회전 설정을 공통 최초 Datum으로 수집하고 `T(progress) * R(progress)`를 적용해 회전과 이동을 동시에 재생합니다. 이전 자세 역변환 순서는 `R(previous)^-1 * T(previous)^-1`입니다. scheduled_progresses가 파트별 시작/동작 시간을 독립적으로 계산하고, Together/Sequence/Custom 입력을 미리보기와 실제 PNG/GIF 생성에 공통 적용합니다. 움직이는 회전 중심·동시 동작·부분 겹침을 모의 Rhino 기하 및 실제 FFmpeg 출력으로 검증했습니다.
+
+1.9.1: 설치 EXE에서 RHI 파일 연결 실행을 제거했습니다. Rhino 8/6의 HKLM·HKCU 양쪽 레지스트리 뷰의 Install/Path 및 표준 Program Files 경로에서 rhiexec.exe를 찾고, UseShellExecute=false와 따옴표로 감싼 패키지 경로로 직접 실행합니다. 엔진 탐색은 기존 파일·등록 삭제보다 먼저 수행하며 연결 프로그램 변경/우회 실패 시 연결 프로그램 실행은 하지 않습니다. McNeel 공식 Installer Engine 안내(https://developer.rhino3d.com/guides/general/rhino-installer-engine/)의 RHI 패키지 설치 모델을 참고했습니다. 경로 탐색·실행 설정·기존 설치 검증 회귀를 자동 테스트했고 Windows Rhino Installer 실제 실행은 이 Linux 환경에서 확인하지 못했습니다.

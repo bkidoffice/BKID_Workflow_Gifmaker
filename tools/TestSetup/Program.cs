@@ -5,6 +5,19 @@ var root = Path.Combine(Path.GetTempPath(), "BKID 삭제 설치 테스트 " + Gu
 Directory.CreateDirectory(root);
 try
 {
+    var custom = Path.Combine(root, "사용자 Rhino 8", "System");
+    var engine = Path.Combine(custom, "rhiexec.exe");
+    Assert(RhinoInstallerLaunch.Find(new[] { custom }, p => p == engine) == engine, "Custom System path failed.");
+    Assert(RhinoInstallerLaunch.Find(new[] { Path.GetDirectoryName(custom) }, p => p == engine) == engine, "Install root path failed.");
+    Assert(RhinoInstallerLaunch.Find(new[] { custom, root }, p => true) == engine, "Candidate priority failed.");
+    var package = Path.Combine(root, "한글 설치 패키지.rhi");
+    var start = RhinoInstallerLaunch.Create(engine, package);
+    Assert(start.FileName == engine && !start.UseShellExecute && start.Arguments == "\"" + package + "\"", "Launch must bypass file associations and quote the package.");
+    bool missing = false;
+    try { RhinoInstallerLaunch.Find(new[] { custom }, p => false); }
+    catch (InvalidOperationException) { missing = true; }
+    Assert(missing, "Missing engine must stop preflight.");
+    Console.WriteLine("PASS: direct Rhino Installer launch, quoted Korean paths, root/System discovery, priority and missing engine preflight.");
     var previous = Path.Combine(root, "BKID.GifMaker.rhp");
     var userFile = Path.Combine(root, "사용자 메모.txt");
     File.WriteAllBytes(previous, new byte[] { 1, 2, 3, 4 });

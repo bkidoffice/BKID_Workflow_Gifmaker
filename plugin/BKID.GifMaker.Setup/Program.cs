@@ -41,7 +41,7 @@ namespace BKID.GifMaker.Setup
         private bool busy;
         public SetupWindow()
         {
-            Text = "BKID Workflowboost GIF Maker 1.9.0 설치";
+            Text = "BKID Workflowboost GIF Maker 1.9.1 설치";
             ClientSize = new Size(760, 420);
             Padding = new Padding(0);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -165,7 +165,7 @@ namespace BKID.GifMaker.Setup
 
         private void Install(string temporary, bool replacementAllowed)
         {
-            string package = Path.Combine(temporary, "BKID_GifMaker_1.9.0.rhi");
+            string package = Path.Combine(temporary, "BKID_GifMaker_1.9.1.rhi");
             using (var input = Assembly.GetExecutingAssembly().GetManifestResourceStream("BKID.Setup.Package.rhi"))
             using (var output = File.Create(package)) input.CopyTo(output);
             byte[] expectedPlugin;
@@ -179,6 +179,8 @@ namespace BKID.GifMaker.Setup
                 expectedRuntime = Read(zip.GetEntry("BKID.FFmpeg.zip"));
             }
             var verification = new InstallationVerification(expectedPlugin, expectedToolbar, expectedRuntime);
+            // Resolve the native engine before deleting any previous installation.
+            var start = RhinoInstallerLaunch.Prepare(package);
             // Discover and validate all candidates before removing any installation.
             var oldPlugins = FindInstalledPlugins().ToList();
             foreach (var version in new[] { "6.0", "8.0" })
@@ -207,7 +209,7 @@ namespace BKID.GifMaker.Setup
             foreach (var version in new[] { "6", "8" })
             foreach (var name in new[] { "BKID_GifMaker.py", "Show_GifMaker.py", "BKID_GifMaker.rui", "assets/BKID_GifMaker_Icon.svg", "assets/icon_32.png" })
                 files.Add(Path.Combine(roaming, "BKID", "GifMaker", "Rhino" + version, name.Replace('/', Path.DirectorySeparatorChar)));
-            foreach (var version in new[] { "1.9.0" })
+            foreach (var version in new[] { "1.9.1" })
             foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py", "motion_preview.py" })
                 files.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", version, name));
             managed.Validate(files);
@@ -217,15 +219,12 @@ namespace BKID.GifMaker.Setup
             {
                 foreach (var file in files) managed.Remove(file);
                 foreach (var key in registry) Registry.CurrentUser.DeleteSubKeyTree(key, false);
-                var start = new ProcessStartInfo(package) { UseShellExecute = true };
                 int? installerExitCode = null;
                 using (var installer = Process.Start(start))
                 {
-                    if (installer != null)
-                    {
-                        installer.WaitForExit();
-                        installerExitCode = installer.ExitCode;
-                    }
+                    if (installer == null) throw new InvalidOperationException("Rhino Installer를 실행하지 못했습니다.");
+                    installer.WaitForExit();
+                    installerExitCode = installer.ExitCode;
                 }
                 // The installed new payload is authoritative, including nonzero engine exits.
                 InstallationVerification.WaitForComplete(installerExitCode,

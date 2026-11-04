@@ -1,18 +1,20 @@
-# BKID Workflowboost GIF Maker 1.9.0
+# BKID Workflowboost GIF Maker 1.9.1
 
 Windows Rhino에서 부품별 Datum CSYS 이동·회전을 설정하고 동시에 또는 순서대로 GIF로 저장하는 도구입니다. 원본은 시작 자세에 유지하고 임시 복사본으로 애니메이션을 만듭니다. `.3dm` 파트는 Rhino 문서로 가져오거나 블록으로 삽입한 뒤 선택하세요.
 
 ## 설치
 
 1. Rhino를 모두 종료합니다.
-2. `installers/BKID_GifMaker_Setup_1.9.0.exe`를 실행합니다.
+2. `installers/BKID_GifMaker_Setup_1.9.1.exe`를 실행합니다.
 3. 설치 버튼을 누르고 Rhino Installer에서 **현재 사용자** 설치를 선택합니다.
 4. Rhino를 실행합니다. 최초 실행 시 GIF Maker 아이콘이 있는 `BKID Workflowboost` 툴바가 표시됩니다. 이후 도킹·표시 상태는 Rhino 설정을 따릅니다.
 5. 툴바를 다시 열려면 `BKIDGifMaker`, 직접 실행하려면 `BKIDGifMakerCapture` 명령을 입력합니다.
 
 EXE는 기존 AutoCrop과 같은 설치 창·재설치 확인·RHI 실행·결과 파일 검증 방식을 사용합니다. 재설치에서 **아니오**를 선택하면 기존 파일을 유지합니다. **예**를 선택하면 GIF Maker의 기존 관리 파일을 삭제한 후 설치하며, 취소·실패 시 이전 버전을 자동 복원하지 않습니다. AutoCrop은 별도 플러그인 GUID로 유지됩니다. 설치 EXE에는 코드 서명이 없습니다.
 
-대체 설치: `installers/BKID_GifMaker_1.9.0.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
+EXE는 파일 연결 설정과 무관하게 Rhino의 `rhiexec.exe`를 직접 실행합니다. Installer가 없으면 기존 설치를 정리하기 전에 중단합니다. `.rhi`가 7-Zip에 연결되어 있어도 위 EXE로 설치하세요.
+
+고급 설치용 `.rhi` 파일도 제공하지만, 파일 연결 문제가 있으면 반드시 위 EXE를 사용하세요. `.rhi` 직접 설치는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
 
 ## 사용
 

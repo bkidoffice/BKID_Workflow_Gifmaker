@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
-  <ItemGroup><Compile Include="../../plugin/BKID.GifMaker.Setup/ManagedFiles.cs" Link="ManagedFiles.cs" /><Compile Include="../../plugin/BKID.GifMaker.Setup/InstallWorkflow.cs" Link="InstallWorkflow.cs" /><Compile Include="../../plugin/BKID.GifMaker.Setup/InstallationVerification.cs" Link="InstallationVerification.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../plugin/BKID.GifMaker.Setup/ManagedFiles.cs" Link="ManagedFiles.cs" /><Compile Include="../../plugin/BKID.GifMaker.Setup/InstallWorkflow.cs" Link="InstallWorkflow.cs" /><Compile Include="../../plugin/BKID.GifMaker.Setup/InstallationVerification.cs" Link="InstallationVerification.cs" /><Compile Include="../../plugin/BKID.GifMaker.Setup/RhinoInstallerLaunch.cs" Link="RhinoInstallerLaunch.cs" /></ItemGroup>
 </Project>
