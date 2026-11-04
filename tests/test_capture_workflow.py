@@ -54,13 +54,15 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True):
         objects = Objects()
         objects.fail_move = fail_move
         view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=800, Height=600)))
         doc = types.SimpleNamespace(Objects=objects, ModelAbsoluteTolerance=.001,
                                     Views=types.SimpleNamespace(ActiveView=view, Redraw=lambda: None))
         captured = []
+        scrubbed = []
+        saves = []
 
         class Capture:
             def CaptureToBitmap(self, ignored):
@@ -85,8 +87,11 @@ class WorkflowTests(unittest.TestCase):
                RhinoApp=types.SimpleNamespace(WriteLine=lambda msg: None))
         points = iter((Vector(0), Vector(10)))
         integers = iter((5, 160))
+        def save_dialog(*args, **kwargs):
+            saves.append(True)
+            return str(path) if save_accept else None
         module('rhinoscriptsyntax', GetObjects=lambda *a, **k: [1], GetPoint=lambda *a: next(points),
-               GetReal=lambda *a: .2, GetInteger=lambda *a: next(integers), SaveFileName=lambda *a, **k: str(path))
+               GetReal=lambda *a: .2, GetInteger=lambda *a: next(integers), SaveFileName=save_dialog)
         module('scriptcontext', doc=doc, escape_test=escape)
         module('System', Array=None, Byte=None, Guid=types.SimpleNamespace(Empty=0), IntPtr=None,
                IO=types.SimpleNamespace(File=types.SimpleNamespace(Replace=lambda a, b, c: Path(a).replace(b), Move=lambda a, b: Path(a).rename(b))))
@@ -99,12 +104,22 @@ class WorkflowTests(unittest.TestCase):
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
             capture.bitmap_indices = lambda bitmap: bytearray([224 if bitmap.x == 0 else 3] * (160 * 120))
+            def preview(view, seconds, intervals, move_to):
+                for value in preview_positions:
+                    move_to(value)
+                    scrubbed.append(next(o.x for o in objects.items.values() if not o.IsHidden))
+                if preview_error:
+                    raise RuntimeError('Preview render failed')
+                return preview_accept
+            capture.show_preview = preview
             result = capture.run()
         self.assertEqual(list(objects.items), [1])
         self.assertEqual(objects.items[1].x, 0)
         self.assertFalse(objects.items[1].IsHidden)
         self.assertTrue(objects.items[1].selected)
         self.assertEqual(list(path.parent.glob('.bkid-gif-*')), [])
+        self.assertEqual(scrubbed, [10 * value for value in preview_positions])
+        self.assertEqual(len(saves), 0 if not preview_accept or preview_error else 1)
         return result, captured
 
     def test_saves_start_end_and_restores_scene(self):
@@ -132,6 +147,38 @@ class WorkflowTests(unittest.TestCase):
             path = Path(folder) / 'new.gif'
             result, _ = self.run_capture(path, fail_move=True)
             self.assertFalse(result)
+            self.assertFalse(path.exists())
+
+    def test_preview_scrubs_both_directions_export_restarts_at_zero(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'scrub.gif'
+            result, positions = self.run_capture(path, preview_positions=(1, .25, .75, 0, .5))
+            self.assertTrue(result)
+            self.assertEqual(positions, [0, 10])
+
+    def test_preview_cancel_restores_scene_without_save_dialog(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'unchanged.gif'
+            path.write_bytes(b'previous')
+            result, positions = self.run_capture(path, preview_positions=(1, .5), preview_accept=False)
+            self.assertFalse(result)
+            self.assertEqual(positions, [])
+            self.assertEqual(path.read_bytes(), b'previous')
+
+    def test_preview_error_restores_scene_without_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'error.gif'
+            result, positions = self.run_capture(path, preview_positions=(1, .5), preview_error=True)
+            self.assertFalse(result)
+            self.assertEqual(positions, [])
+            self.assertFalse(path.exists())
+
+    def test_cancel_save_after_scrubbing_restores_scene(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'cancel.gif'
+            result, positions = self.run_capture(path, preview_positions=(1, .25), save_accept=False)
+            self.assertFalse(result)
+            self.assertEqual(positions, [])
             self.assertFalse(path.exists())
 
 

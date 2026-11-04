@@ -21,3 +21,5 @@
 GIF89a 인코더는 이 프로젝트에서 구현했습니다. 256색 고정 팔레트, 9-bit LZW 사전의 조기 초기화, NETSCAPE 반복 확장을 사용합니다. Pillow는 개발 테스트에서 결과 GIF를 독립적으로 디코딩하는 용도로만 사용하며 플러그인에 배포하지 않습니다.
 
 1.0.1: 원본 AutoCrop SVG를 `assets/AutoCrop_Reference.svg`로 보존하고 파란 프레임 path를 그대로 사용한 벡터 아이콘으로 정규화했습니다. 동일한 CairoSVG 렌더링에서 16·24·32·64px의 모든 프레임 픽셀을 비교했습니다. 속도선 역시 `#0645F5`를 사용합니다. GIF Maker 소유 툴바의 단일 이미지 스트립만 한 번 갱신하며 저장된 도킹·표시 상태와 나머지 XML을 유지합니다.
+
+1.1.0: `motion_preview.py`는 Eto `Dialog<bool>`, `ImageView`, 가로 `Slider`, `UITimer`로 미리보기·타임라인을 구성합니다. 설치된 RhinoCommon 6.0.18016.23451 패키지의 Eto.xml에서 Bitmap(Stream), Slider.Orientation, UITimer, Dialog 이벤트를 확인하고 `tools/CheckRhino6/PreviewApi.cs`로 컴파일 검증했습니다. 실제 Windows Eto UI 실행은 미검증입니다.

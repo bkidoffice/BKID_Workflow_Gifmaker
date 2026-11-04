@@ -20,6 +20,11 @@ if HERE not in sys.path:
 from gif_writer import GifWriter
 
 
+def show_preview(view, seconds, intervals, move_to):
+    from motion_preview import show
+    return show(view, seconds, intervals, move_to)
+
+
 def bitmap_indices(bitmap):
     """Read BGR scanlines without expensive per-pixel .NET calls."""
     width, height = bitmap.Width, bitmap.Height
@@ -74,15 +79,7 @@ def run():
     if height > 1600:
         print(u"세로 해상도가 1600px을 초과합니다. 뷰포트 비율 또는 너비를 줄여 주세요.")
         return False
-    path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")
-    if not path:
-        return False
-    if not path.lower().endswith(".gif"):
-        path += ".gif"
-    # mkstemp and final replacement stay on the destination volume. Failed or
-    # cancelled captures never truncate an existing output.
-    handle, temporary = tempfile.mkstemp(prefix=".bkid-gif-", suffix=".tmp", dir=os.path.dirname(path))
-    os.close(handle)
+    temporary = None
     copies, hidden = [], []
     selected = [item.Id for item in doc.Objects.GetSelectedObjects(False, False)]
     success = False
@@ -99,29 +96,47 @@ def run():
                 raise RuntimeError("Could not hide source object: " + str(object_id))
             hidden.append(object_id)
         doc.Objects.UnselectAll()
+        position = [0.0]
+
+        def move_to(progress):
+            if progress < 0.0 or progress > 1.0:
+                raise ValueError("Timeline position must be in 0..1")
+            delta = progress - position[0]
+            if delta:
+                transform = Rhino.Geometry.Transform.Translation(vector * delta)
+                for index in range(len(copies)):
+                    moved = doc.Objects.Transform(copies[index], transform, True)
+                    if moved == Guid.Empty:
+                        raise RuntimeError("Could not move animation copy")
+                    copies[index] = moved
+                position[0] = progress
+            doc.Views.Redraw()
+
+        intervals = max(1, int(round(seconds * fps)))
+        if not show_preview(view, seconds, intervals, move_to):
+            return False
+        path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")
+        if not path:
+            return False
+        if not path.lower().endswith(".gif"):
+            path += ".gif"
+        # Always export the full travel, regardless of the scrubber position.
+        move_to(0.0)
+        handle, temporary = tempfile.mkstemp(prefix=".bkid-gif-", suffix=".tmp", dir=os.path.dirname(path))
+        os.close(handle)
         capture = Rhino.Display.ViewCapture()
         capture.Width, capture.Height = width, height
         capture.ScaleScreenItems = False
         capture.DrawAxes = capture.DrawGrid = capture.DrawGridAxes = False
         capture.TransparentBackground = False
         # The current camera remains fixed. Frame the entire travel beforehand.
-        intervals = max(1, int(round(seconds * fps)))
-        previous = 0.0
         with open(temporary, "wb") as output:
             writer = GifWriter(output, width, height)
             for frame in range(intervals + 1):
                 if sc.escape_test(False):
                     raise KeyboardInterrupt()
                 progress = float(frame) / intervals
-                if frame:
-                    transform = Rhino.Geometry.Transform.Translation(vector * (progress - previous))
-                    for index in range(len(copies)):
-                        moved = doc.Objects.Transform(copies[index], transform, True)
-                        if moved == Guid.Empty:
-                            raise RuntimeError("Could not move animation copy")
-                        copies[index] = moved
-                previous = progress
-                doc.Views.Redraw()
+                move_to(progress)
                 bitmap = capture.CaptureToBitmap(view)
                 if bitmap is None:
                     raise RuntimeError("Rhino ViewCapture returned no image")
@@ -166,7 +181,7 @@ def run():
             if obj is not None:
                 obj.Select(True)
         doc.Views.Redraw()
-        if os.path.exists(temporary):
+        if temporary is not None and os.path.exists(temporary):
             os.remove(temporary)
         if failures:
             print("Scene restoration requires attention: " + "; ".join(failures))

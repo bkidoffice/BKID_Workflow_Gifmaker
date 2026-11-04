@@ -54,11 +54,11 @@ namespace BKID.GifMaker
         }
         internal string PrepareScript()
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.0.1");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.1.0");
             Directory.CreateDirectory(folder);
-            foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py" })
+            foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py", "motion_preview.py" })
             {
-                var resource = name == "gif_writer.py" ? "BKID.GifMaker.gif_writer.py" : "BKID.GifMaker.Capture.py";
+                var resource = name == "BKID_GifMaker.py" ? "BKID.GifMaker.Capture.py" : "BKID.GifMaker." + name;
                 using (var input = GetType().Assembly.GetManifestResourceStream(resource))
                 {
                     if (input == null) throw new InvalidOperationException("Missing embedded script: " + name);

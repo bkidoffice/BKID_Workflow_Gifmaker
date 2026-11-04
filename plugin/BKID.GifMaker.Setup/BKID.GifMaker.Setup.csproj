@@ -2,8 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net45</TargetFramework>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>BKID_GifMaker_Setup_1.0.1</AssemblyName>
-    <Version>1.0.1</Version>
+    <AssemblyName>BKID_GifMaker_Setup_1.1.0</AssemblyName>
+    <Version>1.1.0</Version>
     <AssemblyTitle>BKID GifMaker Setup</AssemblyTitle>
     <Company>BKID</Company>
     <LangVersion>7.3</LangVersion>
@@ -18,7 +18,7 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.Xml.Linq" />
-    <EmbeddedResource Include="../../installers/BKID_GifMaker_1.0.1.rhi" LogicalName="BKID.Setup.Package.rhi" />
+    <EmbeddedResource Include="../../installers/BKID_GifMaker_1.1.0.rhi" LogicalName="BKID.Setup.Package.rhi" />
     <EmbeddedResource Include="../../assets/WizardImage.png" LogicalName="BKID.Setup.Logo.png" />
   </ItemGroup>
 </Project>
