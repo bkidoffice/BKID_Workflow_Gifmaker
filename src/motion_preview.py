@@ -57,6 +57,7 @@ class MotionPreview(forms.Dialog[bool]):
         layout = forms.DynamicLayout()
         layout.Spacing = drawing.Size(8, 8)
         layout.AddRow(forms.Label(Text=u"슬라이더를 좌우로 움직여 시작부터 끝까지 확인하세요."))
+        layout.AddRow(forms.Label(Text=u"GIF 배경은 투명하게 저장됩니다."))
         layout.AddRow(self.picture)
         layout.AddRow(self.slider)
         layout.AddRow(forms.Label(Text=u"시작"), None, forms.Label(Text=u"끝"))
@@ -100,7 +101,7 @@ class MotionPreview(forms.Dialog[bool]):
             capture.Width, capture.Height = self.preview_width, self.preview_height
             capture.ScaleScreenItems = False
             capture.DrawAxes = capture.DrawGrid = capture.DrawGridAxes = False
-            capture.TransparentBackground = False
+            capture.TransparentBackground = True
             bitmap = capture.CaptureToBitmap(self.view)
             if bitmap is None:
                 raise RuntimeError("Rhino returned no preview image")

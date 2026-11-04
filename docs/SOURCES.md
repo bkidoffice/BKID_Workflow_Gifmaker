@@ -23,3 +23,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 256색 고정 팔
 1.0.1: 원본 AutoCrop SVG를 `assets/AutoCrop_Reference.svg`로 보존하고 파란 프레임 path를 그대로 사용한 벡터 아이콘으로 정규화했습니다. 동일한 CairoSVG 렌더링에서 16·24·32·64px의 모든 프레임 픽셀을 비교했습니다. 속도선 역시 `#0645F5`를 사용합니다. GIF Maker 소유 툴바의 단일 이미지 스트립만 한 번 갱신하며 저장된 도킹·표시 상태와 나머지 XML을 유지합니다.
 
 1.1.0: `motion_preview.py`는 Eto `Dialog<bool>`, `ImageView`, 가로 `Slider`, `UITimer`로 미리보기·타임라인을 구성합니다. 설치된 RhinoCommon 6.0.18016.23451 패키지의 Eto.xml에서 Bitmap(Stream), Slider.Orientation, UITimer, Dialog 이벤트를 확인하고 `tools/CheckRhino6/PreviewApi.cs`로 컴파일 검증했습니다. 실제 Windows Eto UI 실행은 미검증입니다.
+
+1.2.0: AutoCrop 최신 커밋 `781b0a28c9d697e4c83cd8552d2488106445daed`의 실제 RUI와 생성 스크립트를 비교했습니다. 16/24/32px 크기·DPI·표시 방식·컨테이너 기본값이 같습니다. 색 유사도 제거 대신 Rhino ViewCapture 알파 → BGRA → 예약 투명 인덱스를 사용합니다. GIF GCE 투명 플래그와 disposal=2를 적용하고 Pillow 독립 디코딩으로 흰색/검은색·투명 배경·잔상 방지를 검증했습니다.

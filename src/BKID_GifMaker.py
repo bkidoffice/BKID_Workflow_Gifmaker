@@ -17,7 +17,7 @@ from System.Runtime.InteropServices import Marshal
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from gif_writer import GifWriter
+from gif_writer import GifWriter, bgra_indices
 
 
 def show_preview(view, seconds, intervals, move_to):
@@ -26,20 +26,18 @@ def show_preview(view, seconds, intervals, move_to):
 
 
 def bitmap_indices(bitmap):
-    """Read BGR scanlines without expensive per-pixel .NET calls."""
+    """Read straight-alpha BGRA scanlines, retaining Rhino's alpha mask."""
     width, height = bitmap.Width, bitmap.Height
-    converted = bitmap.Clone(Rectangle(0, 0, width, height), PixelFormat.Format24bppRgb)
+    converted = bitmap.Clone(Rectangle(0, 0, width, height), PixelFormat.Format32bppArgb)
     try:
         data = converted.LockBits(Rectangle(0, 0, width, height),
-                                  ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb)
+                                  ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)
         try:
-            row = Array.CreateInstance(Byte, width * 3)
+            row = Array.CreateInstance(Byte, width * 4)
             result = bytearray(width * height)
             for y in range(height):
-                Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), row, 0, width * 3)
-                for x in range(width):
-                    offset = x * 3
-                    result[y * width + x] = ((int(row[offset + 2]) >> 5) << 5) | ((int(row[offset + 1]) >> 5) << 2) | (int(row[offset]) >> 6)
+                Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), row, 0, width * 4)
+                result[y * width:(y + 1) * width] = bgra_indices(row, width)
             return result
         finally:
             converted.UnlockBits(data)
@@ -128,10 +126,10 @@ def run():
         capture.Width, capture.Height = width, height
         capture.ScaleScreenItems = False
         capture.DrawAxes = capture.DrawGrid = capture.DrawGridAxes = False
-        capture.TransparentBackground = False
+        capture.TransparentBackground = True
         # The current camera remains fixed. Frame the entire travel beforehand.
         with open(temporary, "wb") as output:
-            writer = GifWriter(output, width, height)
+            writer = GifWriter(output, width, height, transparent=True)
             for frame in range(intervals + 1):
                 if sc.escape_test(False):
                     raise KeyboardInterrupt()

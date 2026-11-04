@@ -66,6 +66,8 @@ class WorkflowTests(unittest.TestCase):
 
         class Capture:
             def CaptureToBitmap(self, ignored):
+                if not self.TransparentBackground:
+                    raise AssertionError('GIF capture must request Rhino alpha')
                 x = next(o.x for o in objects.items.values() if not o.IsHidden)
                 captured.append(x)
                 return types.SimpleNamespace(x=x, Dispose=lambda: None)
@@ -103,7 +105,7 @@ class WorkflowTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
-            capture.bitmap_indices = lambda bitmap: bytearray([224 if bitmap.x == 0 else 3] * (160 * 120))
+            capture.bitmap_indices = lambda bitmap: bytearray([255] + [224 if bitmap.x == 0 else 3] * (160 * 120 - 1))
             def preview(view, seconds, intervals, move_to):
                 for value in preview_positions:
                     move_to(value)
@@ -131,6 +133,8 @@ class WorkflowTests(unittest.TestCase):
             with Image.open(path) as image:
                 self.assertEqual(image.n_frames, 2)
                 self.assertEqual(image.info['duration'], 700)
+                self.assertEqual(image.convert('RGBA').getpixel((0, 0))[3], 0)
+                self.assertEqual(image.convert('RGBA').getpixel((1, 0))[3], 255)
                 image.seek(1)
                 self.assertEqual(image.info['duration'], 500)
 

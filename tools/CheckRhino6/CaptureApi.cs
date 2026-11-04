@@ -12,7 +12,17 @@ internal static class CaptureApi
   capture.DrawGridAxes = false;
   capture.Width = view.ActiveViewport.Size.Width;
   capture.Height = view.ActiveViewport.Size.Height;
-  using (var bitmap = capture.CaptureToBitmap(view)) { }
+  using (var bitmap = capture.CaptureToBitmap(view))
+  using (var rgba = bitmap.Clone(new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height), System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+  {
+   var data = rgba.LockBits(new System.Drawing.Rectangle(0, 0, rgba.Width, rgba.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+   try
+   {
+    byte[] row = new byte[rgba.Width * 4];
+    System.Runtime.InteropServices.Marshal.Copy(System.IntPtr.Add(data.Scan0, 0 * data.Stride), row, 0, row.Length);
+   }
+   finally { rgba.UnlockBits(data); }
+  }
   var id = System.Guid.NewGuid();
   var objById = doc.Objects.FindId(id);
   var copy = doc.Objects.Transform(id, Rhino.Geometry.Transform.Identity, false);

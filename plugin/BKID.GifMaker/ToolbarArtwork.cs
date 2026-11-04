@@ -41,6 +41,23 @@ namespace BKID.GifMaker
                     if (existing == null) bitmaps.Add(new XElement(replacement));
                     else existing.ReplaceWith(new XElement(replacement));
                 }
+                // Match AutoCrop's native icon-only display defaults while
+                // retaining the user's group size, position and docking state.
+                foreach (var sourceBar in template.Root.Element("tool_bars").Elements("tool_bar"))
+                {
+                    var bar = current.Root.Element("tool_bars").Elements("tool_bar")
+                        .FirstOrDefault(item => string.Equals((string)item.Attribute("guid"), (string)sourceBar.Attribute("guid"), StringComparison.OrdinalIgnoreCase));
+                    if (bar == null) continue;
+                    bar.SetAttributeValue("item_display_style", (string)sourceBar.Attribute("item_display_style"));
+                    foreach (var sourceButton in sourceBar.Elements("tool_bar_item"))
+                    {
+                        var button = bar.Elements("tool_bar_item").FirstOrDefault(item =>
+                            string.Equals((string)item.Attribute("guid"), (string)sourceButton.Attribute("guid"), StringComparison.OrdinalIgnoreCase));
+                        if (button == null) continue;
+                        foreach (string attribute in new[] { "button_display_mode", "button_style" })
+                            button.SetAttributeValue(attribute, (string)sourceButton.Attribute(attribute));
+                    }
+                }
                 var visibility = new Dictionary<Guid, bool>();
                 for (int i = 0; i < file.GroupCount; i++) visibility[file.GetGroup(i).Id] = file.GetGroup(i).Visible;
                 file.Close(false);

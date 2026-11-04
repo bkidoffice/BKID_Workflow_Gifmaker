@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from gif_writer import GifWriter, palette_index
+from gif_writer import GifWriter, palette_index, bgra_indices, TRANSPARENT_INDEX
 
 
 class GifTests(unittest.TestCase):
@@ -47,6 +47,46 @@ class GifTests(unittest.TestCase):
             writer.add_frame([0], 10)
         stream.seek(0)
         self.assertEqual(Image.open(stream).convert("RGB").getpixel((0, 0)), (255, 255, 255))
+
+    def test_transparency_uses_alpha_and_preserves_white_and_black(self):
+        # Transparent, opaque white, opaque black, alpha below/above cutoff.
+        pixels = bgra_indices(bytearray([255, 255, 255, 0,
+                                        255, 255, 255, 255,
+                                        0, 0, 0, 255,
+                                        0, 0, 0, 127,
+                                        255, 255, 255, 128]), 5)
+        stream = io.BytesIO()
+        writer = GifWriter(stream, 5, 1, transparent=True)
+        writer.add_frame(pixels, 10)
+        writer.finish()
+        stream.seek(0)
+        image = Image.open(stream)
+        rgba = image.convert('RGBA')
+        self.assertEqual(image.info['transparency'], TRANSPARENT_INDEX)
+        self.assertEqual(rgba.getpixel((0, 0))[3], 0)
+        self.assertEqual(rgba.getpixel((1, 0)), (255, 255, 255, 255))
+        self.assertEqual(rgba.getpixel((2, 0)), (0, 0, 0, 255))
+        self.assertEqual(rgba.getpixel((3, 0))[3], 0)
+        self.assertEqual(rgba.getpixel((4, 0)), (255, 255, 255, 255))
+
+    def test_moving_part_leaves_no_trail_after_transparent_frame_disposal(self):
+        stream = io.BytesIO()
+        writer = GifWriter(stream, 5, 3, transparent=True)
+        for x in (0, 2, 4, 0):
+            frame = bytearray([TRANSPARENT_INDEX] * 15)
+            frame[5 + x] = palette_index(255, 255, 255, transparent=True)
+            writer.add_frame(frame, 7)
+        writer.finish()
+        stream.seek(0)
+        image = Image.open(stream)
+        self.assertEqual(image.n_frames, 4)
+        for index, x in enumerate((0, 2, 4, 0)):
+            image.seek(index)
+            self.assertEqual(image.disposal_method, 2)
+            rgba = image.convert('RGBA')
+            for y in range(3):
+                for column in range(5):
+                    self.assertEqual(rgba.getpixel((column, y))[3], 255 if y == 1 and column == x else 0)
 
 
 if __name__ == "__main__":

@@ -13,22 +13,24 @@ namespace BKID.GifMaker
     {
         public static GifMakerPlugin Instance { get; private set; }
         private int attempts;
+        private bool startupBusy;
         public GifMakerPlugin() { Instance = this; }
         public override PlugInLoadTime LoadTime { get { return PlugInLoadTime.AtStartup; } }
         protected override LoadReturnCode OnLoad(ref string errorMessage)
         {
-            if (!Settings.GetBool("NativeToolbarInitialized", false) || Settings.GetString("ArtworkRevision", "") != "autocrop-frame-1") RhinoApp.Idle += OnIdle;
+            if (!Settings.GetBool("NativeToolbarInitialized", false) || Settings.GetString("ArtworkRevision", "") != "autocrop-size-2") RhinoApp.Idle += OnIdle;
             return LoadReturnCode.Success;
         }
         private void OnIdle(object sender, EventArgs e)
         {
-            if (RhinoDoc.ActiveDoc == null || RhinoApp.MainWindowHandle() == IntPtr.Zero) return;
+            if (startupBusy || RhinoDoc.ActiveDoc == null || RhinoApp.MainWindowHandle() == IntPtr.Zero) return;
+            startupBusy = true;
             try
             {
-                if (Settings.GetString("ArtworkRevision", "") != "autocrop-frame-1")
+                if (Settings.GetString("ArtworkRevision", "") != "autocrop-size-2")
                 {
                     ToolbarArtwork.Refresh(GetType().Assembly);
-                    Settings.SetString("ArtworkRevision", "autocrop-frame-1");
+                    Settings.SetString("ArtworkRevision", "autocrop-size-2");
                 }
                 if (!Settings.GetBool("NativeToolbarInitialized", false)) ShowToolbar();
                 RhinoApp.Idle -= OnIdle;
@@ -39,6 +41,7 @@ namespace BKID.GifMaker
                 RhinoApp.Idle -= OnIdle;
                 RhinoApp.WriteLine("GIF Maker toolbar: " + error.Message + " | Run BKIDGifMaker to retry.");
             }
+            finally { startupBusy = false; }
         }
         internal void ShowToolbar()
         {
@@ -54,7 +57,7 @@ namespace BKID.GifMaker
         }
         internal string PrepareScript()
         {
-            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.1.0");
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BKID", "GifMaker", "runtime", "1.2.0");
             Directory.CreateDirectory(folder);
             foreach (var name in new[] { "BKID_GifMaker.py", "gif_writer.py", "motion_preview.py" })
             {

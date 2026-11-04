@@ -1,13 +1,37 @@
 # -*- coding: utf-8 -*-
 """Dependency-free GIF89a writer, compatible with IronPython 2.7.
 
-Fixed RGB 3:3:2 palette; opaque frames. One frame is buffered at a time.
+Fixed RGB 3:3:2 palette with an optional reserved transparent index.
+One frame is buffered at a time.
 """
 import struct
 
 
-def palette_index(red, green, blue):
-    return ((int(red) >> 5) << 5) | ((int(green) >> 5) << 2) | (int(blue) >> 6)
+TRANSPARENT_INDEX = 255
+
+
+def palette_index(red, green, blue, alpha=255, transparent=False):
+    if transparent and alpha < 128:
+        return TRANSPARENT_INDEX
+    value = ((int(red) >> 5) << 5) | ((int(green) >> 5) << 2) | (int(blue) >> 6)
+    if transparent:
+        # Reserve 255 for alpha, retaining exact opaque white at 254. The old
+        # pale-yellow 254 moves to its closest remaining green neighbour.
+        if value == 255:
+            return 254
+        if value == 254:
+            return 250
+    return value
+
+
+def bgra_indices(row, width):
+    """Map straight-alpha BGRA bytes; colour similarity never removes pixels."""
+    result = bytearray(width)
+    for x in range(width):
+        offset = x * 4
+        result[x] = palette_index(row[offset + 2], row[offset + 1], row[offset],
+                                  row[offset + 3], True)
+    return result
 
 
 def _lzw(indices):
@@ -57,16 +81,21 @@ def _lzw(indices):
 
 
 class GifWriter(object):
-    def __init__(self, stream, width, height):
+    def __init__(self, stream, width, height, transparent=False):
         if not 1 <= width <= 65535 or not 1 <= height <= 65535:
             raise ValueError("Invalid GIF dimensions")
         self.stream = stream
         self.width, self.height = width, height
         self.frames = 0
         self.closed = False
+        self.transparent = bool(transparent)
         stream.write(b"GIF89a")
-        stream.write(struct.pack("<HHBBB", width, height, 247, 0, 0))
+        stream.write(struct.pack("<HHBBB", width, height, 247,
+                                 TRANSPARENT_INDEX if self.transparent else 0, 0))
         for value in range(256):
+            if self.transparent and value == 254:
+                stream.write(b"\xff\xff\xff")
+                continue
             stream.write(struct.pack("BBB", int(round(((value >> 5) & 7) * 255.0 / 7)),
                                      int(round(((value >> 2) & 7) * 255.0 / 7)),
                                      (value & 3) * 85))
@@ -80,8 +109,12 @@ class GifWriter(object):
         if not 1 <= delay_cs <= 65535:
             raise ValueError("Invalid frame delay")
         payload = _lzw(indices)
-        self.stream.write(b"\x21\xf9\x04\x04")
-        self.stream.write(struct.pack("<HBB", delay_cs, 0, 0))
+        # Full frames + restore-to-background disposal prevent old part
+        # positions showing through transparent pixels of subsequent frames.
+        flags = 9 if self.transparent else 4
+        self.stream.write(b"\x21\xf9\x04" + struct.pack("B", flags))
+        self.stream.write(struct.pack("<HBB", delay_cs,
+                                       TRANSPARENT_INDEX if self.transparent else 0, 0))
         self.stream.write(b"\x2c" + struct.pack("<HHHHB", 0, 0, self.width, self.height, 0))
         self.stream.write(b"\x08")
         for offset in range(0, len(payload), 255):
