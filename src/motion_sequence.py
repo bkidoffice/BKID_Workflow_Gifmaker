@@ -33,9 +33,30 @@ def rotation_angles_at(angles, progress):
     if not angles or any(math.isnan(value) or math.isinf(value) for value in angles):
         raise ValueError("Rotation gestures must be finite")
     weights = [abs(value) for value in angles]
-    if any(value <= 0 for value in weights):
-        raise ValueError("Rotation gestures must be nonzero")
-    return [angle * fraction for angle, fraction in zip(angles, step_progresses(weights, progress))]
+    if not 0 <= progress <= 1:
+        raise ValueError("Timeline position must be in 0..1")
+    elapsed, start = sum(weights) * progress, 0.0
+    result = []
+    for angle, weight in zip(angles, weights):
+        result.append(0.0 if weight == 0 else angle * max(0.0, min(1.0, (elapsed - start) / weight)))
+        start += weight
+    return result
+
+
+def local_rotation_axes(basis, names, angles):
+    frame = [list(axis) for axis in basis]
+    result = []
+    for name, angle in zip(names, angles):
+        axis = frame['XYZ'.index(name)]
+        result.append(tuple(axis))
+        c, s = math.cos(angle), math.sin(angle)
+        updated = []
+        for vector in frame:
+            dot = sum(a * b for a, b in zip(axis, vector))
+            cross = (axis[1] * vector[2] - axis[2] * vector[1], axis[2] * vector[0] - axis[0] * vector[2], axis[0] * vector[1] - axis[1] * vector[0])
+            updated.append([vector[i] * c + cross[i] * s + axis[i] * dot * (1 - c) for i in range(3)])
+        frame = updated
+    return result
 
 
 class SceneSequence(object):
@@ -64,6 +85,9 @@ class SceneSequence(object):
             step['axes'] = list(motion.RotationAxes)
             step['angles'] = list(motion.RotationAngles)
             step['center'] = motion.RotationCenter
+            step['names'] = list(getattr(motion, 'RotationAxisNames', []))
+            datum = getattr(motion, 'Datum', None)
+            step['basis'] = None if datum is None else [(axis.X, axis.Y, axis.Z) for axis in (datum.XAxis, datum.YAxis, datum.ZAxis)]
             if len(step['axes']) != len(step['angles']):
                 raise ValueError("Rotation axes and gestures do not match")
             rotation_angles_at(step['angles'], 0.0)
@@ -116,6 +140,32 @@ class SceneSequence(object):
         for step, position in zip(self.steps, step_progresses(self.durations, progress)):
             self._move(step, position)
         self.doc.Views.Redraw()
+
+    def set_rotation_degrees(self, step_index, angle_index, degrees):
+        if math.isnan(degrees) or math.isinf(degrees) or abs(degrees) > 36000:
+            raise ValueError("Rotation angle must be finite and within ±36000 degrees")
+        step = self.steps[step_index]
+        angles = list(step['angles'])
+        angles[angle_index] = math.radians(degrees)
+        new_axes = step['axes']
+        if step['basis'] is not None and len(step['names']) == len(angles):
+            new_axes = [type(step['axes'][0])(*axis) for axis in local_rotation_axes(step['basis'], step['names'], angles)]
+        position = step['position']
+        # Remove the old pose BEFORE changing its angle, then apply the new pose.
+        self._move(step, 0.0)
+        step['angles'], step['axes'] = angles, new_axes
+        self._move(step, position)
+        self.doc.Views.Redraw()
+
+    def rotation_controls(self):
+        controls = []
+        for step_index, step in enumerate(self.steps):
+            if step['kind'] != 'Rotate': continue
+            for angle_index, angle in enumerate(step['angles']):
+                name = step['names'][angle_index] if angle_index < len(step['names']) else str(angle_index + 1)
+                def apply(value, si=step_index, ai=angle_index): self.set_rotation_degrees(si, ai, value)
+                controls.append({'label': u"파트 {0} · {1} 회전".format(step_index + 1, name), 'degrees': math.degrees(angle), 'apply': apply})
+        return controls
 
     def restore(self):
         failures = []

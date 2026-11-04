@@ -82,9 +82,9 @@ def pick_parts(doc, allow_finish, excluded):
     return 'parts', list(result.ObjectIds)
 
 
-def show_preview(view, seconds, intervals, move_to, datum_summary=None, samples=None):
+def show_preview(view, seconds, intervals, move_to, datum_summary=None, samples=None, rotation_controls=None):
     from motion_preview import show
-    return show(view, seconds, intervals, move_to, datum_summary, samples)
+    return show(view, seconds, intervals, move_to, datum_summary, samples, rotation_controls)
 
 
 def run():
@@ -137,7 +137,7 @@ def run():
         move_to = scene.seek
         datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 else u"순차 동작 {0}단계 · 총 {1:.2f}초".format(len(scene.steps), seconds)
         move_to(0.0)
-        accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary, samples)
+        accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary, samples, scene.rotation_controls())
         if not accepted:
             return False
         path = rs.SaveFileName(u"이동 GIF 저장", "GIF animation (*.gif)|*.gif||", filename="BKID_Motion.gif")

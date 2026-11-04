@@ -24,6 +24,12 @@ class Vector:
     def Length(self): return math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
     def __sub__(self, other): return Vector(self.x - other.x, self.y - other.y, self.z - other.z)
     def __mul__(self, scale): return Vector(self.x * scale, self.y * scale, self.z * scale)
+    @property
+    def X(self): return self.x
+    @property
+    def Y(self): return self.y
+    @property
+    def Z(self): return self.z
 
 
 class Matrix:
@@ -82,7 +88,7 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False, rotate=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False, rotate=False, rotate_degrees=None):
         objects = Objects()
         if sequence:
             objects.items[2] = Obj(2, 100)
@@ -203,7 +209,12 @@ class WorkflowTests(unittest.TestCase):
                         if line.startswith('frame='): report(int(line.split('=', 1)[1]))
                 encode_frames(frames, output, progress, executable=shutil.which('ffmpeg'), run_job=run)
             capture.encode_frames = assemble
-            def preview(view, seconds, intervals, move_to, datum_summary=None, samples=None):
+            def preview(view, seconds, intervals, move_to, datum_summary=None, samples=None, rotation_controls=None):
+                if rotate:
+                    self.assertEqual(len(rotation_controls), 1)
+                    if rotate_degrees is not None:
+                        rotation_controls[0]['apply'](rotate_degrees)
+                        move_to(1)
                 if sequence:
                     self.assertIn('2', datum_summary)
                     self.assertEqual(samples, [0, .2, .4])
@@ -233,9 +244,10 @@ class WorkflowTests(unittest.TestCase):
                 self.assertAlmostEqual(actual[0], 10 * min(1, value * 2))
                 self.assertAlmostEqual(actual[1], 100 + 20 * max(0, value * 2 - 1))
         elif rotate:
+            radians = math.pi if rotate_degrees is None else math.radians(rotate_degrees)
             for actual, value in zip(scrubbed, preview_positions):
-                self.assertAlmostEqual(actual[0], 1 - math.cos(math.pi * value))
-                self.assertAlmostEqual(actual[1], -math.sin(math.pi * value))
+                self.assertAlmostEqual(actual[0], 1 - math.cos(radians * value))
+                self.assertAlmostEqual(actual[1], -math.sin(radians * value))
         else:
             for actual, value in zip(scrubbed, preview_positions): self.assertAlmostEqual(actual, 10 * value)
         self.assertEqual(len(saves), 0 if datum_cancel or fail_move or cancel_next or cancel_second_datum or not preview_accept or preview_error else 1)
@@ -371,6 +383,14 @@ class WorkflowTests(unittest.TestCase):
             for actual, expected in zip(positions, ((0, 0), (1, -1), (2, 0))):
                 for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
             with Image.open(path) as gif: self.assertEqual(gif.n_frames, 3)
+
+    def test_entered_rotation_angle_changes_preview_and_export(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'angle.gif'
+            result, positions = self.run_capture(path, rotate=True, rotate_degrees=90, preview_positions=(0, .5, 1, 0))
+            self.assertTrue(result)
+            for actual, expected in zip(positions, ((0, 0), (1 - math.sqrt(.5), -math.sqrt(.5)), (1, -1))):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
 
 
 if __name__ == '__main__':

@@ -27,9 +27,13 @@ internal static class PreviewApi
         dialog.Closed += (sender, args) => { };
         var cancel = new Button { Text = "Cancel" };
         var keepPng = new CheckBox { Text = "Keep original PNG captures", Checked = false };
+        var angle = new NumericStepper { MinValue = -36000, MaxValue = 36000, DecimalPlaces = 3, Increment = 1, Value = 90, Width = 130 };
+        angle.ValueChanged += (sender, args) => { double degrees = angle.Value; };
         dialog.AbortButton = cancel;
         cancel.Click += (sender, args) => dialog.Close(false);
         var layout = new DynamicLayout { Spacing = new Size(8, 8) };
+        layout.AddRow(new Label { Text = "Angle (degrees)" }, angle);
+        var scroll = new Scrollable { Content = new DynamicLayout(), Height = 144 };
         layout.AddRow(image); layout.AddRow(slider); layout.AddRow(keepPng); layout.AddRow(cancel);
         dialog.Content = layout;
         bool accepted = dialog.ShowModal(RhinoEtoApp.MainWindow);

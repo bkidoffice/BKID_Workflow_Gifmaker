@@ -12,7 +12,7 @@ from System.Drawing.Imaging import ImageFormat
 
 
 class MotionPreview(forms.Dialog[bool]):
-    def __init__(self, view, seconds, intervals, move_to, datum_summary=None, samples=None):
+    def __init__(self, view, seconds, intervals, move_to, datum_summary=None, samples=None, rotation_controls=None):
         self.Title = u"BKID GIF Maker - 동작 미리보기"
         self.Resizable = False
         self.Padding = drawing.Padding(16)
@@ -27,8 +27,10 @@ class MotionPreview(forms.Dialog[bool]):
         self.image_stream = None
         self.clock = None
         self.play_start = 0.0
+        self.angle_fields = []
         size = view.ActiveViewport.Size
-        self.preview_width = min(560, max(1, int(round(340.0 * size.Width / max(1, size.Height)))))
+        image_height = 340 - min(168, 24 + 30 * len(rotation_controls)) if rotation_controls else 340
+        self.preview_width = min(560, max(1, int(round(image_height * size.Width / max(1, size.Height)))))
         self.preview_height = max(1, int(round(self.preview_width * float(size.Height) / max(1, size.Width))))
         self.picture = forms.ImageView()
         self.picture.Width, self.picture.Height = self.preview_width, self.preview_height
@@ -59,9 +61,35 @@ class MotionPreview(forms.Dialog[bool]):
         self.Shown += self.on_shown
         layout = forms.DynamicLayout()
         layout.Spacing = drawing.Size(8, 8)
+        if rotation_controls:
+            layout.AddRow(forms.Label(Text=u"회전 각도 입력 (°, 음수=반대 방향, 0=회전 없음)"))
+            angle_layout = forms.DynamicLayout()
+            angle_layout.Spacing = drawing.Size(8, 4)
+            for control in rotation_controls:
+                number = forms.NumericStepper()
+                number.MinValue, number.MaxValue = -36000.0, 36000.0
+                number.DecimalPlaces = 3
+                number.Increment = 1.0
+                number.Width = 130
+                number.Value = control['degrees']
+                def change(sender, args, field=number, apply=control['apply']):
+                    self.stop()
+                    try:
+                        apply(float(field.Value))
+                        self.seek(self.intervals)
+                    except Exception as error:
+                        self.error = error
+                        self.Close(False)
+                number.ValueChanged += change
+                self.angle_fields.append((number, change))
+                angle_layout.AddRow(forms.Label(Text=control['label']), number, forms.Label(Text=u"도"))
+            scroll = forms.Scrollable()
+            scroll.Content = angle_layout
+            scroll.Height = min(144, 8 + 28 * len(rotation_controls))
+            layout.AddRow(scroll)
         layout.AddRow(forms.Label(Text=u"슬라이더를 좌우로 움직여 시작부터 끝까지 확인하세요."))
         layout.AddRow(forms.Label(Text=u"GIF 배경은 투명하게 저장됩니다."))
-        if datum_summary:
+        if datum_summary and not rotation_controls:
             layout.AddRow(forms.Label(Text=datum_summary))
         layout.AddRow(self.picture)
         layout.AddRow(self.slider)
@@ -169,6 +197,9 @@ class MotionPreview(forms.Dialog[bool]):
 
     def release(self):
         self.stop()
+        for field, handler in self.angle_fields:
+            field.ValueChanged -= handler
+        self.angle_fields = []
         self.timer.Elapsed -= self.on_tick
         self.timer.Dispose()
         self.picture.Image = None
@@ -181,8 +212,8 @@ class MotionPreview(forms.Dialog[bool]):
         self.Dispose()
 
 
-def show(view, seconds, intervals, move_to, datum_summary=None, samples=None):
-    dialog = MotionPreview(view, seconds, intervals, move_to, datum_summary, samples)
+def show(view, seconds, intervals, move_to, datum_summary=None, samples=None, rotation_controls=None):
+    dialog = MotionPreview(view, seconds, intervals, move_to, datum_summary, samples, rotation_controls)
     try:
         accepted = dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
         if dialog.error is not None:

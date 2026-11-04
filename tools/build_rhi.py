@@ -30,7 +30,7 @@ def main():
                     str(ROOT / 'src/BKID_GifMaker.py'), str(ROOT / 'assets/icon_64.png')], check=True)
     out = ROOT / 'installers'
     out.mkdir(exist_ok=True)
-    package = out / 'BKID_GifMaker_1.7.0.rhi'
+    package = out / 'BKID_GifMaker_1.8.0.rhi'
     with zipfile.ZipFile(package, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.write(binary, binary.name)
         archive.write(toolbar, toolbar.name)
@@ -48,7 +48,7 @@ def main():
     setup = ROOT / 'plugin/BKID.GifMaker.Setup/BKID.GifMaker.Setup.csproj'
     subprocess.run([args.dotnet, 'restore', str(setup), '--locked-mode'], check=True)
     subprocess.run([args.dotnet, 'build', str(setup), '-c', 'Release', '--no-restore'], check=True)
-    exe = setup.parent / 'bin/Release/net45/BKID_GifMaker_Setup_1.7.0.exe'
+    exe = setup.parent / 'bin/Release/net45/BKID_GifMaker_Setup_1.8.0.exe'
     subprocess.run([args.dotnet, 'run', '--project', verify, '-c', 'Release', '--', '--setup',
                     str(exe), str(package), str(ROOT / 'assets/WizardImage.png')], check=True)
     shutil.copyfile(exe, out / exe.name)

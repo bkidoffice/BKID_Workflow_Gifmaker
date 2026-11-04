@@ -38,7 +38,7 @@ class TimelineTests(unittest.TestCase):
         self.assertAlmostEqual(actual[0], math.pi / 2)
         self.assertAlmostEqual(actual[1], -math.pi / 2)
         self.assertAlmostEqual(rotation_angles_at([2 * math.pi], .25)[0], math.pi / 2)
-        with self.assertRaises(ValueError): rotation_angles_at([0], .5)
+        self.assertEqual(rotation_angles_at([0], .5), [0])
 
 
 class RotationSceneTests(unittest.TestCase):
@@ -99,6 +99,31 @@ class RotationSceneTests(unittest.TestCase):
         self.assert_point(objects, 1, (7, 0, 0)); self.assert_point(objects, 2, (2, 0, 0))
         self.assertEqual(scene.restore(), [])
         self.assert_point(objects, 1, (2, 0, 0)); self.assert_point(objects, 2, (2, 0, 0))
+
+    def test_edit_angle_at_endpoint_replaces_old_pose_and_accepts_negative_zero(self):
+        scene, objects = self.create((2, 0, 0))
+        scene.add([1], self.rotation(Vector(1), [Vector(0, 0, 1)], [math.pi]), 1, 'rotation')
+        control = scene.rotation_controls()[0]
+        self.assertAlmostEqual(control['degrees'], 180)
+        control['apply'](90); self.assert_point(objects, 1, (1, 1, 0))
+        control['apply'](-90); self.assert_point(objects, 1, (1, -1, 0))
+        control['apply'](0); self.assert_point(objects, 1, (2, 0, 0))
+        control['apply'](360)
+        scene.seek(.25); self.assert_point(objects, 1, (1, 1, 0))
+        with self.assertRaises(ValueError): control['apply'](float('nan'))
+        self.assertEqual(scene.restore(), [])
+
+    def test_edit_prior_angle_rebuilds_following_local_axes(self):
+        scene, objects = self.create((1, 1, 0))
+        motion = self.rotation(Vector(0), [Vector(1, 0, 0), Vector(0, 0, 1)], [math.pi / 2, math.pi / 2])
+        motion.Datum = types.SimpleNamespace(XAxis=Vector(1), YAxis=Vector(0, 1), ZAxis=Vector(0, 0, 1))
+        motion.RotationAxisNames = ['X', 'Y']
+        scene.add([1], motion, 2, 'rotation')
+        self.assert_point(objects, 1, (0, 1, 1))
+        scene.set_rotation_degrees(0, 0, 0)
+        # With X reset, the next local Y is now world Y, not the old world Z.
+        self.assert_point(objects, 1, (0, 1, -1))
+        scene.seek(0); self.assert_point(objects, 1, (1, 1, 0))
 
 
 if __name__ == '__main__': unittest.main()

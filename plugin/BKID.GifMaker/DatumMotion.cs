@@ -23,6 +23,7 @@ namespace BKID.GifMaker
         public Point3d RotationCenter { get; internal set; }
         public Vector3d[] RotationAxes { get; internal set; }
         public double[] RotationAngles { get; internal set; }
+        public string[] RotationAxisNames { get; internal set; }
     }
 
     public static class DatumMotion
@@ -45,6 +46,7 @@ namespace BKID.GifMaker
             var rotationAxes = new List<Vector3d>();
             var rotationAngles = new List<double>();
             var rotationLabels = new List<string>();
+            var rotationNames = new List<string>();
             var objects = new TransformObjectList();
             foreach (var id in ids)
             {
@@ -77,13 +79,19 @@ namespace BKID.GifMaker
                     using (var drag = new DatumDrag(conduit))
                     {
                         drag.SetCommandPrompt(rotate
-                            ? "Datum X·Y·Z 회전 링을 드래그하세요. Enter: 회전 확정 / Esc: 취소"
+                            ? "회전 링 드래그 또는 Angle=각도 입력. Enter: 회전 확정 / Esc: 취소"
                             : "Datum X·Y·Z 화살표를 드래그하세요. Enter: 이동 확정 / Esc: 취소");
                         drag.AcceptNothing(true);
+                        int angleOption = rotate ? drag.AddOption("Angle") : -1;
                         drag.AddTransformObjects(objects);
                         var result = drag.MoveGumball();
                         conduit.Enabled = false;
                         if (drag.CommandResult() != Result.Success || result == GetResult.Cancel) return cancelled;
+                        if (rotate && result == GetResult.Option && drag.OptionIndex() == angleOption)
+                        {
+                            if (!NumericAngle(datum, ball, conduit, rotationNames, rotationAxes, rotationAngles, rotationLabels)) return cancelled;
+                            continue;
+                        }
                         if (result == GetResult.Point)
                         {
                             if (conduit.PickResult.Mode == GumballMode.None) continue;
@@ -91,6 +99,7 @@ namespace BKID.GifMaker
                             {
                                 rotationAxes.Add(drag.RotationAxis);
                                 rotationAngles.Add(drag.RotationAngle);
+                                rotationNames.Add(drag.RotationAxisName);
                                 rotationLabels.Add(string.Format("{0} {1:+0.###;-0.###;0}°", drag.RotationAxisName, drag.RotationAngle * 180 / Math.PI));
                             }
                             conduit.PreTransform = conduit.TotalTransform;
@@ -103,9 +112,13 @@ namespace BKID.GifMaker
                         if (rotate)
                         {
                             if (rotationAngles.Count == 0)
-                            { RhinoApp.WriteLine("회전량이 없습니다. 회전 링을 드래그하세요."); continue; }
+                            {
+                                if (!NumericAngle(datum, ball, conduit, rotationNames, rotationAxes, rotationAngles, rotationLabels)) return cancelled;
+                                continue;
+                            }
                             return new DatumMotionResult { Accepted = true, Datum = datum, Kind = "Rotate",
                                 RotationCenter = datum.Origin, RotationAxes = rotationAxes.ToArray(), RotationAngles = rotationAngles.ToArray(),
+                                RotationAxisNames = rotationNames.ToArray(),
                                 Summary = "Datum 회전: " + string.Join(" → ", rotationLabels.ToArray()) };
                         }
                         var transform = conduit.PreTransform;
@@ -134,6 +147,45 @@ namespace BKID.GifMaker
                 ball.Dispose();
                 doc.Views.Redraw();
             }
+        }
+
+        private static bool NumericAngle(Plane datum, GumballObject ball, GumballDisplayConduit conduit,
+            List<string> names, List<Vector3d> axes, List<double> angles, List<string> labels)
+        {
+            string selected = names.Count == 0 ? "Z" : names[names.Count - 1];
+            using (var axis = new GetOption())
+            {
+                axis.SetCommandPrompt("회전축 선택 (Enter=" + selected + ")");
+                int x = axis.AddOption("X"), y = axis.AddOption("Y"), z = axis.AddOption("Z");
+                axis.AcceptNothing(true);
+                var result = axis.Get();
+                if (result == GetResult.Cancel || axis.CommandResult() != Result.Success) return false;
+                if (result == GetResult.Option) selected = axis.OptionIndex() == x ? "X" : axis.OptionIndex() == y ? "Y" : "Z";
+            }
+            double degrees;
+            using (var number = new GetNumber())
+            {
+                number.SetCommandPrompt("회전 각도 입력 (도, 음수=반대 방향)");
+                number.SetDefaultNumber(angles.Count == 0 ? 90 : angles[angles.Count - 1] * 180 / Math.PI);
+                number.SetLowerLimit(-36000, false); number.SetUpperLimit(36000, false);
+                if (number.Get() != GetResult.Number) return false;
+                degrees = number.Number();
+            }
+            if (names.Count == 0) { names.Add(selected); angles.Add(degrees * Math.PI / 180); }
+            else { names[names.Count - 1] = selected; angles[angles.Count - 1] = degrees * Math.PI / 180; }
+            axes.Clear(); labels.Clear();
+            var plane = datum; var total = Transform.Identity;
+            for (int i = 0; i < names.Count; i++)
+            {
+                var direction = names[i] == "X" ? plane.XAxis : names[i] == "Y" ? plane.YAxis : plane.ZAxis;
+                axes.Add(direction);
+                var rotation = Transform.Rotation(angles[i], direction, datum.Origin);
+                total = rotation * total; plane.Transform(rotation);
+                labels.Add(string.Format("{0} {1:+0.###;-0.###;0}°", names[i], angles[i] * 180 / Math.PI));
+            }
+            conduit.PreTransform = total;
+            var frame = ball.Frame; frame.Plane = plane; ball.Frame = frame;
+            return true;
         }
 
         private static bool DefineDatum(RhinoDoc doc, out Plane datum)
