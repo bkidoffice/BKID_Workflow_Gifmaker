@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 from ffmpeg_encoder import encode_frames
-from motion_sequence import SceneSequence, frame_times
+from motion_sequence import SceneSequence
 
 
 class SaveProgress(object):
@@ -87,6 +87,21 @@ def show_preview(view, seconds, intervals, move_to, datum_summary=None, samples=
     return show(view, seconds, intervals, move_to, datum_summary, samples, rotation_controls)
 
 
+def choose_timing(scene):
+    mode = rs.GetString(u"재생 방식: Together=동시 / Sequence=순차 / Custom=시작 시간 지정", 'Together', ['Together', 'Sequence', 'Custom'])
+    if mode is None: return False
+    mode = mode.lower()
+    starts = None
+    if mode == 'custom':
+        starts = []
+        for index in range(len(scene.steps)):
+            start = rs.GetReal(u"파트 {0} 시작 시간 (초, 0=처음부터)".format(index + 1), 0.0, 0.0, 3600.0)
+            if start is None: return False
+            starts.append(start)
+    scene.set_playback({'together': 'simultaneous', 'sequence': 'sequential', 'custom': 'custom'}[mode], starts)
+    return True
+
+
 def run():
     doc = sc.doc
     view = doc.Views.ActiveView
@@ -111,7 +126,7 @@ def run():
             datum_motion = pick_datum_motion(doc, ids)
             if datum_motion is None:
                 return False
-            if getattr(datum_motion, 'Kind', 'Translate') != 'Rotate' and datum_motion.WorldTranslation.Length <= doc.ModelAbsoluteTolerance:
+            if getattr(datum_motion, 'Kind', 'Translate') not in ('Rotate', 'Combined') and datum_motion.WorldTranslation.Length <= doc.ModelAbsoluteTolerance:
                 print(u"Datum 이동량이 문서 공차보다 작습니다.")
                 return False
             duration = rs.GetReal(u"{0}번째 부품 동작 시간 (초)".format(len(scene.steps) + 1), 2.0, 0.2, 10.0)
@@ -119,7 +134,8 @@ def run():
                 return False
             scene.add(ids, datum_motion, duration, datum_motion.Summary)
             print(u"{0}단계 완료: {1}".format(len(scene.steps), datum_motion.Summary))
-        seconds = sum(scene.durations)
+        if not choose_timing(scene): return False
+        seconds = scene.total_seconds
         fps = rs.GetInteger(u"초당 프레임 수", 15, 5, 30)
         if fps is None:
             return False
@@ -132,10 +148,12 @@ def run():
         if height > 65535:
             print(u"GIF 형식의 최대 높이 65535px을 초과합니다. 너비를 줄여 주세요.")
             return False
-        samples = frame_times(scene.durations, fps)
+        samples = scene.samples(fps)
         intervals = len(samples) - 1
         move_to = scene.seek
-        datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 else u"순차 동작 {0}단계 · 총 {1:.2f}초".format(len(scene.steps), seconds)
+        label = {'simultaneous': u'동시', 'sequential': u'순차', 'custom': u'시간 지정'}[scene.playback]
+        kind = {'Translate': u'이동', 'Rotate': u'회전', 'Combined': u'이동+회전'}[scene.steps[0]['kind']] if len(scene.steps) == 1 else u'동작'
+        datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 and scene.steps[0]['kind'] == 'Translate' else u"{0} {1} {2}개 · 총 {3:.2f}초".format(label, kind, len(scene.steps), seconds)
         move_to(0.0)
         accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary, samples, scene.rotation_controls())
         if not accepted:

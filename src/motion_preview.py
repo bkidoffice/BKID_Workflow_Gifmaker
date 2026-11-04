@@ -89,7 +89,7 @@ class MotionPreview(forms.Dialog[bool]):
             layout.AddRow(scroll)
         layout.AddRow(forms.Label(Text=u"슬라이더를 좌우로 움직여 시작부터 끝까지 확인하세요."))
         layout.AddRow(forms.Label(Text=u"GIF 배경은 투명하게 저장됩니다."))
-        if datum_summary and not rotation_controls:
+        if datum_summary:
             layout.AddRow(forms.Label(Text=datum_summary))
         layout.AddRow(self.picture)
         layout.AddRow(self.slider)

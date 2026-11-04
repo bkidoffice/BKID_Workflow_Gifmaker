@@ -88,7 +88,7 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False, rotate=False, rotate_degrees=None):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False, rotate=False, rotate_degrees=None, combined=False, concurrent=False):
         objects = Objects()
         if sequence:
             objects.items[2] = Obj(2, 100)
@@ -164,7 +164,7 @@ class WorkflowTests(unittest.TestCase):
             saves.append(True)
             return str(path) if save_accept else None
         module('rhinoscriptsyntax', GetObjects=lambda *a, **k: [1], GetPoint=lambda *a: next(points),
-               GetReal=lambda *a: .4 if rotate else .2, GetInteger=get_integer, SaveFileName=save_dialog)
+               GetReal=lambda *a: .4 if rotate or concurrent else .2, GetInteger=get_integer, SaveFileName=save_dialog)
         module('scriptcontext', doc=doc, escape_test=escape)
         module('System', Array=None, Byte=None, Guid=types.SimpleNamespace(Empty=0), IntPtr=None,
                IO=types.SimpleNamespace(File=types.SimpleNamespace(Replace=lambda a, b, c: Path(a).replace(b), Move=lambda a, b: Path(a).rename(b))))
@@ -186,15 +186,19 @@ class WorkflowTests(unittest.TestCase):
                     # The first part is visibly at its endpoint when the next
                     # part picker opens. Its animation copies cannot be picked.
                     first = next(o for o in objects.items.values() if o.root == 1 and not o.IsHidden)
-                    self.assertAlmostEqual(first.x, 2 if rotate else 10)
+                    self.assertAlmostEqual(first.x, 12 if combined else 2 if rotate else 10)
                     self.assertIn(first.Id, excluded)
                     self.assertTrue(allow_finish)
                 return next(selections)
             capture.pick_parts = choose
             capture.pick_datum_motion = lambda doc, ids: None if datum_cancel or (cancel_second_datum and ids == [2]) else types.SimpleNamespace(
-                Kind='Rotate' if rotate else 'Translate', WorldTranslation=Vector(0 if rotate else 10 if ids == [1] else 20),
+                Kind='Combined' if combined else 'Rotate' if rotate else 'Translate', WorldTranslation=Vector(10 if combined else 0 if rotate else 10 if ids == [1] else 20),
                 RotationCenter=Vector(1), RotationAxes=[Vector(0, 0, 1)], RotationAngles=[math.pi],
                 Summary='Datum 회전 Z180' if rotate else 'Datum X:10 Y:0 Z:0')
+            def timing(scene):
+                scene.set_playback('simultaneous' if concurrent else 'sequential')
+                return True
+            capture.choose_timing = timing
             from ffmpeg_encoder import encode_frames
             def assemble(frames, output, progress):
                 # Exercise the actual FFmpeg commands against the captured PNGs.
@@ -241,12 +245,12 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(objects.items[2].x, 100)
             self.assertFalse(objects.items[2].IsHidden)
             for actual, value in zip(scrubbed, preview_positions):
-                self.assertAlmostEqual(actual[0], 10 * min(1, value * 2))
-                self.assertAlmostEqual(actual[1], 100 + 20 * max(0, value * 2 - 1))
+                self.assertAlmostEqual(actual[0], 10 * value if concurrent else 10 * min(1, value * 2))
+                self.assertAlmostEqual(actual[1], 100 + 20 * (value if concurrent else max(0, value * 2 - 1)))
         elif rotate:
             radians = math.pi if rotate_degrees is None else math.radians(rotate_degrees)
             for actual, value in zip(scrubbed, preview_positions):
-                self.assertAlmostEqual(actual[0], 1 - math.cos(radians * value))
+                self.assertAlmostEqual(actual[0], 1 - math.cos(radians * value) + (10 * value if combined else 0))
                 self.assertAlmostEqual(actual[1], -math.sin(radians * value))
         else:
             for actual, value in zip(scrubbed, preview_positions): self.assertAlmostEqual(actual, 10 * value)
@@ -390,6 +394,20 @@ class WorkflowTests(unittest.TestCase):
             result, positions = self.run_capture(path, rotate=True, rotate_degrees=90, preview_positions=(0, .5, 1, 0))
             self.assertTrue(result)
             for actual, expected in zip(positions, ((0, 0), (1 - math.sqrt(.5), -math.sqrt(.5)), (1, -1))):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
+
+    def test_move_and_rotate_same_part_exports_both_at_each_frame(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result, positions = self.run_capture(Path(folder) / 'both.gif', rotate=True, combined=True, preview_positions=(0, .5, 1, .25, 0))
+            self.assertTrue(result)
+            for actual, expected in zip(positions, ((0, 0), (6, -1), (12, 0))):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
+
+    def test_two_parts_export_simultaneously_and_scrub_back(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result, positions = self.run_capture(Path(folder) / 'together.gif', sequence=True, concurrent=True, preview_positions=(0, .5, 1, .25, 0))
+            self.assertTrue(result)
+            for actual, expected in zip(positions, ((0, 100), (5, 110), (10, 120))):
                 for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
 
 

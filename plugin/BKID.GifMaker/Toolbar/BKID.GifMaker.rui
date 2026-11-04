@@ -42,10 +42,10 @@
         <locale_1033>GifMaker</locale_1033>
       </text>
       <tooltip>
-        <locale_1033>Datum 이동·회전을 GIF로 저장</locale_1033>
+        <locale_1033>Datum 이동·회전·동시 동작을 GIF로 저장</locale_1033>
       </tooltip>
       <help_text>
-        <locale_1033>Datum 이동·회전을 GIF로 저장</locale_1033>
+        <locale_1033>Datum 이동·회전·동시 동작을 GIF로 저장</locale_1033>
       </help_text>
       <button_text>
         <locale_1033>GifMaker</locale_1033>

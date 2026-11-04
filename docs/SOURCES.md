@@ -39,3 +39,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 프레임별 적�
 1.7.0: 기존 McNeel Gumball 흐름에서 TranslateX/Y/Z와 RotateX/Y/Z를 선택한 기능에 맞게 전환합니다. 회전 링의 기준/현재 평면 축으로 atan2 각도를 계산하고 자체 RotationTracker가 ±π 경계를 풀어 회전 수·방향을 기록합니다. 회전 재생은 RhinoCommon Transform.Rotation(angle, axis, DatumOrigin)을 실제 드래그 순서로 합성하고 이전 자세 역변환으로 탐색합니다. 배포 소스의 각도 추적·좌표 변환 테스트와 실제 GIF 생성 통합 테스트를 실행하고 초기 Rhino 6 SDK로 컴파일했습니다.
 
 1.8.0: Rhino GetNumber/회전축 GetOption으로 상단 명령창 각도 입력을 추가하고, Eto NumericStepper의 ValueChanged로 미리보기 상단 각도를 편집합니다. SceneSequence가 이전 자세를 제거한 뒤 새 각도·후속 로컬 축을 재계산하고 완료 자세를 갱신합니다. 실제 GIF 생성 통합 테스트와 기존 SDK 컴파일 검사에 포함했습니다.
+
+1.9.0: Datum Both는 기존 이동·회전 설정을 공통 최초 Datum으로 수집하고 `T(progress) * R(progress)`를 적용해 회전과 이동을 동시에 재생합니다. 이전 자세 역변환 순서는 `R(previous)^-1 * T(previous)^-1`입니다. scheduled_progresses가 파트별 시작/동작 시간을 독립적으로 계산하고, Together/Sequence/Custom 입력을 미리보기와 실제 PNG/GIF 생성에 공통 적용합니다. 움직이는 회전 중심·동시 동작·부분 겹침을 모의 Rhino 기하 및 실제 FFmpeg 출력으로 검증했습니다.

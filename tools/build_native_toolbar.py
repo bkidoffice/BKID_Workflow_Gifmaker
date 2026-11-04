@@ -44,7 +44,7 @@ def build():
     E.SubElement(button, 'right_macro_id').text = guid('resolution-hover-v2')
     macros = E.SubElement(r, 'macros')
     for key, command, caption, tooltip in [
-            ('capture-hover-v2', 'BKIDGifMakerCapture', 'GifMaker', 'Datum 이동·회전을 GIF로 저장'),
+            ('capture-hover-v2', 'BKIDGifMakerCapture', 'GifMaker', 'Datum 이동·회전·동시 동작을 GIF로 저장'),
             ('resolution-hover-v2', 'BKIDGifMakerCapture', 'GifMaker', '동작 시간·FPS·해상도 설정 후 GIF 저장')]:
         macro = E.SubElement(macros, 'macro_item', guid=guid(key), bitmap_id=guid('icon'))
         for tag, value in [('text', caption),

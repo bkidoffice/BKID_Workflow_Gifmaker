@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Sequential part motion and the temporary scene used to edit/export it."""
+"""Timed part translation/rotation and the temporary scene used to edit/export it."""
 import math
 
 
@@ -27,6 +27,28 @@ def frame_times(durations, fps):
         start += duration
         result.append(start)
     return result
+
+
+def scheduled_progresses(durations, starts, progress):
+    step_progresses(durations, 0)
+    if starts is None or len(starts) != len(durations) or any(math.isnan(s) or math.isinf(s) or s < 0 for s in starts):
+        raise ValueError("Motion start times must be finite and nonnegative")
+    if not 0 <= progress <= 1: raise ValueError("Timeline position must be in 0..1")
+    end = max(start + duration for start, duration in zip(starts, durations))
+    elapsed = end * progress
+    return [max(0.0, min(1.0, (elapsed - start) / duration)) for start, duration in zip(starts, durations)]
+
+
+def scheduled_frame_times(durations, starts, fps):
+    scheduled_progresses(durations, starts, 0)
+    if fps < 1: raise ValueError("FPS must be positive")
+    end = max(start + duration for start, duration in zip(starts, durations))
+    count = max(1, int(round(end * fps)))
+    samples = [end * float(i) / count for i in range(count + 1)]
+    samples.extend(starts)
+    samples.extend(start + duration for start, duration in zip(starts, durations))
+    interior = sorted(set(round(value, 12) for value in samples if value > 1e-12 and value < end - 1e-12))
+    return [0.0] + [value for value in interior if 0 < value < end - 1e-12] + [end]
 
 
 def rotation_angles_at(angles, progress):
@@ -68,6 +90,7 @@ class SceneSequence(object):
         self.empty_guid = Guid.Empty
         self.steps = []
         self.hidden = []
+        self.playback = 'sequential'
 
     @property
     def copy_ids(self):
@@ -77,11 +100,32 @@ class SceneSequence(object):
     def durations(self):
         return [step['seconds'] for step in self.steps]
 
+    @property
+    def starts(self): return [step['start'] for step in self.steps]
+
+    @property
+    def total_seconds(self): return max(step['start'] + step['seconds'] for step in self.steps)
+
+    def set_playback(self, mode, starts=None):
+        if mode == 'sequential':
+            starts, position = [], 0.0
+            for duration in self.durations:
+                starts.append(position); position += duration
+        elif mode == 'simultaneous': starts = [0.0] * len(self.steps)
+        elif mode != 'custom': raise ValueError("Unknown playback mode")
+        scheduled_progresses(self.durations, starts, 0)
+        for step, start in zip(self.steps, starts): step['start'] = start
+        self.playback = mode
+
+    def samples(self, fps):
+        return frame_times(self.durations, fps) if self.playback == 'sequential' else scheduled_frame_times(self.durations, self.starts, fps)
+
     def add(self, ids, motion, seconds, summary):
         step_progresses([seconds], 0.0)
         kind = getattr(motion, 'Kind', 'Translate')
-        step = {'copies': [], 'kind': kind, 'seconds': seconds, 'summary': summary, 'position': 0.0}
-        if kind == 'Rotate':
+        step = {'copies': [], 'kind': kind, 'seconds': seconds, 'summary': summary, 'position': 0.0,
+                'start': sum(self.durations)}
+        if kind in ('Rotate', 'Combined'):
             step['axes'] = list(motion.RotationAxes)
             step['angles'] = list(motion.RotationAngles)
             step['center'] = motion.RotationCenter
@@ -91,9 +135,9 @@ class SceneSequence(object):
             if len(step['axes']) != len(step['angles']):
                 raise ValueError("Rotation axes and gestures do not match")
             rotation_angles_at(step['angles'], 0.0)
-        elif kind == 'Translate':
+        if kind in ('Translate', 'Combined'):
             step['vector'] = motion.WorldTranslation
-        else:
+        elif kind != 'Rotate':
             raise ValueError("Unknown Datum operation")
         # Register before copying so an interrupted/partially failed addition is
         # included in the enclosing command's guaranteed scene cleanup.
@@ -118,7 +162,7 @@ class SceneSequence(object):
         delta = position - step['position']
         if not delta:
             return
-        if step['kind'] == 'Rotate':
+        if step['kind'] in ('Rotate', 'Combined'):
             target = self.transforms.Identity
             for axis, angle in zip(step['axes'], rotation_angles_at(step['angles'], position)):
                 target = self.transforms.Rotation(angle, axis, step['center']) * target
@@ -126,6 +170,11 @@ class SceneSequence(object):
             old = list(zip(step['axes'], rotation_angles_at(step['angles'], step['position'])))
             for axis, angle in reversed(old):
                 inverse = self.transforms.Rotation(-angle, axis, step['center']) * inverse
+            if step['kind'] == 'Combined':
+                # Rotate about the original Datum, then translate the part and
+                # its pivot together. Invert in the opposite order when seeking.
+                target = self.transforms.Translation(step['vector'] * position) * target
+                inverse = inverse * self.transforms.Translation(step['vector'] * -step['position'])
             transform = target * inverse
         else:
             transform = self.transforms.Translation(step['vector'] * delta)
@@ -137,7 +186,7 @@ class SceneSequence(object):
         step['position'] = position
 
     def seek(self, progress):
-        for step, position in zip(self.steps, step_progresses(self.durations, progress)):
+        for step, position in zip(self.steps, scheduled_progresses(self.durations, self.starts, progress)):
             self._move(step, position)
         self.doc.Views.Redraw()
 
@@ -160,7 +209,7 @@ class SceneSequence(object):
     def rotation_controls(self):
         controls = []
         for step_index, step in enumerate(self.steps):
-            if step['kind'] != 'Rotate': continue
+            if step['kind'] not in ('Rotate', 'Combined'): continue
             for angle_index, angle in enumerate(step['angles']):
                 name = step['names'][angle_index] if angle_index < len(step['names']) else str(angle_index + 1)
                 def apply(value, si=step_index, ai=angle_index): self.set_rotation_degrees(si, ai, value)

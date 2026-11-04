@@ -33,16 +33,35 @@ namespace BKID.GifMaker
             var cancelled = new DatumMotionResult();
             Plane datum;
             if (!DefineDatum(doc, out datum)) return cancelled;
-            bool rotate;
+            bool rotate, both;
             using (var mode = new GetOption())
             {
-                mode.SetCommandPrompt("Datum 기능 선택: Move=이동 / Rotate=회전 (Enter=Move)");
+                mode.SetCommandPrompt("Datum 기능: Move=이동 / Rotate=회전 / Both=이동+회전 (Enter=Move)");
                 mode.AddOption("Move"); int rotation = mode.AddOption("Rotate");
+                int combined = mode.AddOption("Both");
                 mode.AcceptNothing(true);
                 var result = mode.Get();
                 if (result == GetResult.Cancel || mode.CommandResult() != Result.Success) return cancelled;
                 rotate = result == GetResult.Option && mode.OptionIndex() == rotation;
+                both = result == GetResult.Option && mode.OptionIndex() == combined;
             }
+            if (!both) return PickOperation(doc, ids, datum, rotate);
+            RhinoApp.WriteLine("이동+회전: 먼저 이동 화살표로 이동량을 설정하세요. 저장할 때 회전과 동시에 재생합니다.");
+            var movement = PickOperation(doc, ids, datum, false);
+            if (!movement.Accepted) return cancelled;
+            RhinoApp.WriteLine("이제 시작 Datum 기준의 회전 링 또는 Angle로 회전을 설정하세요.");
+            var spinning = PickOperation(doc, ids, datum, true);
+            if (!spinning.Accepted) return cancelled;
+            return new DatumMotionResult { Accepted = true, Kind = "Combined", Datum = datum,
+                WorldTranslation = movement.WorldTranslation, LocalTranslation = movement.LocalTranslation,
+                RotationCenter = spinning.RotationCenter, RotationAxes = spinning.RotationAxes,
+                RotationAngles = spinning.RotationAngles, RotationAxisNames = spinning.RotationAxisNames,
+                Summary = "Datum 이동+회전: " + movement.Summary + " | " + spinning.Summary };
+        }
+
+        private static DatumMotionResult PickOperation(RhinoDoc doc, Guid[] ids, Plane datum, bool rotate)
+        {
+            var cancelled = new DatumMotionResult();
             var rotationAxes = new List<Vector3d>();
             var rotationAngles = new List<double>();
             var rotationLabels = new List<string>();

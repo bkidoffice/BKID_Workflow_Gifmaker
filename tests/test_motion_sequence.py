@@ -6,7 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from motion_sequence import step_progresses, frame_times, rotation_angles_at, SceneSequence
+from motion_sequence import step_progresses, frame_times, rotation_angles_at, SceneSequence, scheduled_progresses, scheduled_frame_times
 from test_capture_workflow import Matrix, Vector, Objects, Obj
 
 
@@ -39,6 +39,21 @@ class TimelineTests(unittest.TestCase):
         self.assertAlmostEqual(actual[1], -math.pi / 2)
         self.assertAlmostEqual(rotation_angles_at([2 * math.pi], .25)[0], math.pi / 2)
         self.assertEqual(rotation_angles_at([0], .5), [0])
+
+    def test_simultaneous_motions_have_independent_duration_and_hold_end(self):
+        self.assertEqual(scheduled_progresses([1, 2], [0, 0], .25), [.5, .25])
+        self.assertEqual(scheduled_progresses([1, 2], [0, 0], .75), [1, .75])
+        self.assertEqual(scheduled_progresses([1, 1], [0, .5], .5), [.75, .25])
+
+    def test_custom_schedule_captures_boundaries_and_exact_last_timestamp(self):
+        durations, starts = [.4, .6], [.1, .3]
+        end = max(s + d for s, d in zip(starts, durations))
+        samples = scheduled_frame_times(durations, starts, 5)
+        self.assertEqual(samples[-1], end)
+        self.assertIn(.1, samples); self.assertIn(.3, samples); self.assertIn(.5, samples)
+        for value in samples: scheduled_progresses(durations, starts, value / end)
+        for invalid in (None, [-1, 0], [float('nan'), 0], [0]):
+            with self.assertRaises(ValueError): scheduled_progresses(durations, invalid, 0)
 
 
 class RotationSceneTests(unittest.TestCase):
@@ -124,6 +139,33 @@ class RotationSceneTests(unittest.TestCase):
         # With X reset, the next local Y is now world Y, not the old world Z.
         self.assert_point(objects, 1, (0, 1, -1))
         scene.seek(0); self.assert_point(objects, 1, (1, 1, 0))
+
+    def test_combined_part_translates_while_rotating_with_a_moving_datum(self):
+        scene, objects = self.create((2, 0, 0))
+        motion = self.rotation(Vector(1), [Vector(0, 0, 1)], [math.pi / 2])
+        motion.Kind, motion.WorldTranslation = 'Combined', Vector(10)
+        scene.add([1], motion, 2, 'both')
+        scene.seek(.5)
+        self.assert_point(objects, 1, (6 + math.sqrt(.5), math.sqrt(.5), 0))
+        scene.seek(1); self.assert_point(objects, 1, (11, 1, 0))
+        scene.rotation_controls()[0]['apply'](180)
+        self.assert_point(objects, 1, (10, 0, 0))
+        scene.seek(0); self.assert_point(objects, 1, (2, 0, 0))
+        self.assertEqual(scene.restore(), [])
+
+    def test_different_parts_move_and_rotate_at_the_same_time(self):
+        scene, objects = self.create((2, 0, 0))
+        objects.items[2] = Obj(2, 2); objects.next_id = 3
+        scene.add([1], types.SimpleNamespace(Kind='Translate', WorldTranslation=Vector(10)), 1, 'move')
+        scene.add([2], self.rotation(Vector(1), [Vector(0, 0, 1)], [math.pi / 2]), 2, 'rotate')
+        scene.set_playback('simultaneous')
+        self.assertEqual(scene.total_seconds, 2)
+        scene.seek(.25)
+        self.assert_point(objects, 1, (7, 0, 0))
+        self.assert_point(objects, 2, (1 + math.cos(math.pi / 8), math.sin(math.pi / 8), 0))
+        scene.seek(.75); self.assert_point(objects, 1, (12, 0, 0))
+        scene.seek(0); self.assert_point(objects, 1, (2, 0, 0)); self.assert_point(objects, 2, (2, 0, 0))
+        self.assertEqual(scene.restore(), [])
 
 
 if __name__ == '__main__': unittest.main()
