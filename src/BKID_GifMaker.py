@@ -70,12 +70,15 @@ def run():
     fps = rs.GetInteger(u"초당 프레임 수", 15, 5, 30)
     if fps is None:
         return False
-    width = rs.GetInteger(u"GIF 너비 (px, 높이는 현재 뷰 비율)", 800, 160, 1600)
+    viewport_size = view.ActiveViewport.Size
+    # Same pre-crop pixel dimensions as AutoCrop capture_scale=1.0.
+    width = rs.GetInteger(u"GIF 너비 (px, Enter = 현재 뷰포트 1배율)",
+                          max(1, int(viewport_size.Width)), 1, 65535)
     if width is None:
         return False
-    height = max(1, int(round(width * float(view.ActiveViewport.Size.Height) / max(1, view.ActiveViewport.Size.Width))))
-    if height > 1600:
-        print(u"세로 해상도가 1600px을 초과합니다. 뷰포트 비율 또는 너비를 줄여 주세요.")
+    height = max(1, int(round(width * float(viewport_size.Height) / max(1, viewport_size.Width))))
+    if height > 65535:
+        print(u"GIF 형식의 최대 높이 65535px을 초과합니다. 너비를 줄여 주세요.")
         return False
     temporary = None
     copies, hidden = [], []

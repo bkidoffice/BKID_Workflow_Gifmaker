@@ -54,10 +54,10 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False):
         objects = Objects()
         objects.fail_move = fail_move
-        view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=800, Height=600)))
+        view = types.SimpleNamespace(ActiveViewport=types.SimpleNamespace(Size=types.SimpleNamespace(Width=1920, Height=1080)))
         doc = types.SimpleNamespace(Objects=objects, ModelAbsoluteTolerance=.001,
                                     Views=types.SimpleNamespace(ActiveView=view, Redraw=lambda: None))
         captured = []
@@ -70,7 +70,7 @@ class WorkflowTests(unittest.TestCase):
                     raise AssertionError('GIF capture must request Rhino alpha')
                 x = next(o.x for o in objects.items.values() if not o.IsHidden)
                 captured.append(x)
-                return types.SimpleNamespace(x=x, Dispose=lambda: None)
+                return types.SimpleNamespace(x=x, Width=self.Width, Height=self.Height, Dispose=lambda: None)
 
         calls = [0]
         def escape(ignored):
@@ -88,12 +88,17 @@ class WorkflowTests(unittest.TestCase):
                Geometry=types.SimpleNamespace(Transform=types.SimpleNamespace(Identity=Vector(0), Translation=lambda v: v)),
                RhinoApp=types.SimpleNamespace(WriteLine=lambda msg: None))
         points = iter((Vector(0), Vector(10)))
-        integers = iter((5, 160))
+        integer_calls = []
+        def get_integer(*args):
+            integer_calls.append(args)
+            if len(integer_calls) == 1:
+                return 5
+            return args[1] if default_resolution else 160
         def save_dialog(*args, **kwargs):
             saves.append(True)
             return str(path) if save_accept else None
         module('rhinoscriptsyntax', GetObjects=lambda *a, **k: [1], GetPoint=lambda *a: next(points),
-               GetReal=lambda *a: .2, GetInteger=lambda *a: next(integers), SaveFileName=save_dialog)
+               GetReal=lambda *a: .2, GetInteger=get_integer, SaveFileName=save_dialog)
         module('scriptcontext', doc=doc, escape_test=escape)
         module('System', Array=None, Byte=None, Guid=types.SimpleNamespace(Empty=0), IntPtr=None,
                IO=types.SimpleNamespace(File=types.SimpleNamespace(Replace=lambda a, b, c: Path(a).replace(b), Move=lambda a, b: Path(a).rename(b))))
@@ -105,7 +110,7 @@ class WorkflowTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location('capture_under_test', source)
             capture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(capture)
-            capture.bitmap_indices = lambda bitmap: bytearray([255] + [224 if bitmap.x == 0 else 3] * (160 * 120 - 1))
+            capture.bitmap_indices = lambda bitmap: bytearray([255] + [224 if bitmap.x == 0 else 3] * (bitmap.Width * bitmap.Height - 1))
             def preview(view, seconds, intervals, move_to):
                 for value in preview_positions:
                     move_to(value)
@@ -127,11 +132,12 @@ class WorkflowTests(unittest.TestCase):
     def test_saves_start_end_and_restores_scene(self):
         with tempfile.TemporaryDirectory(prefix='gif 한글 ') as folder:
             path = Path(folder) / '제품 이동.gif'
-            result, positions = self.run_capture(path)
+            result, positions = self.run_capture(path, default_resolution=True)
             self.assertTrue(result)
             self.assertEqual(positions, [0, 10])
             with Image.open(path) as image:
                 self.assertEqual(image.n_frames, 2)
+                self.assertEqual(image.size, (1920, 1080))
                 self.assertEqual(image.info['duration'], 700)
                 self.assertEqual(image.convert('RGBA').getpixel((0, 0))[3], 0)
                 self.assertEqual(image.convert('RGBA').getpixel((1, 0))[3], 255)

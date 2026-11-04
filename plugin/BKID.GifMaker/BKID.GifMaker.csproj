@@ -4,7 +4,7 @@
     <TargetExt>.rhp</TargetExt>
     <AssemblyName>BKID.GifMaker</AssemblyName>
     <RootNamespace>BKID.GifMaker</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <AssemblyTitle>BKID GifMaker</AssemblyTitle>
     <Description>Linear part motion GIF capture with a native BKID toolbar.</Description>
     <Company>BKID</Company>
