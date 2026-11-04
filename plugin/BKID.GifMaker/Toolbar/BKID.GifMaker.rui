@@ -42,10 +42,10 @@
         <locale_1033>GifMaker</locale_1033>
       </text>
       <tooltip>
-        <locale_1033>부품을 직선 이동하며 GIF 저장</locale_1033>
+        <locale_1033>Datum 이동·회전을 GIF로 저장</locale_1033>
       </tooltip>
       <help_text>
-        <locale_1033>부품을 직선 이동하며 GIF 저장</locale_1033>
+        <locale_1033>Datum 이동·회전을 GIF로 저장</locale_1033>
       </help_text>
       <button_text>
         <locale_1033>GifMaker</locale_1033>
@@ -60,10 +60,10 @@
         <locale_1033>GifMaker</locale_1033>
       </text>
       <tooltip>
-        <locale_1033>이동 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
+        <locale_1033>동작 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
       </tooltip>
       <help_text>
-        <locale_1033>이동 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
+        <locale_1033>동작 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
       </help_text>
       <button_text>
         <locale_1033>GifMaker</locale_1033>

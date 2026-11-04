@@ -20,8 +20,8 @@ namespace BKID.GifMaker
             using (var get = new GetObject())
             {
                 get.SetCommandPrompt(allowFinish
-                    ? "다음 부품을 선택하세요 (Enter: 전체 이동 설정 완료 / Esc: 전체 취소)"
-                    : "Datum CSYS로 이동할 첫 부품을 선택하세요");
+                    ? "다음 부품을 선택하세요 (Enter: 전체 동작 설정 완료 / Esc: 전체 취소)"
+                    : "Datum CSYS 동작을 설정할 첫 부품을 선택하세요");
                 get.EnablePreSelect(!allowFinish, true);
                 get.SubObjectSelect = false;
                 get.GroupSelect = false;

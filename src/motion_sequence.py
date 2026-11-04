@@ -29,6 +29,15 @@ def frame_times(durations, fps):
     return result
 
 
+def rotation_angles_at(angles, progress):
+    if not angles or any(math.isnan(value) or math.isinf(value) for value in angles):
+        raise ValueError("Rotation gestures must be finite")
+    weights = [abs(value) for value in angles]
+    if any(value <= 0 for value in weights):
+        raise ValueError("Rotation gestures must be nonzero")
+    return [angle * fraction for angle, fraction in zip(angles, step_progresses(weights, progress))]
+
+
 class SceneSequence(object):
     def __init__(self, doc):
         import Rhino
@@ -47,9 +56,21 @@ class SceneSequence(object):
     def durations(self):
         return [step['seconds'] for step in self.steps]
 
-    def add(self, ids, vector, seconds, summary):
+    def add(self, ids, motion, seconds, summary):
         step_progresses([seconds], 0.0)
-        step = {'copies': [], 'vector': vector, 'seconds': seconds, 'summary': summary, 'position': 0.0}
+        kind = getattr(motion, 'Kind', 'Translate')
+        step = {'copies': [], 'kind': kind, 'seconds': seconds, 'summary': summary, 'position': 0.0}
+        if kind == 'Rotate':
+            step['axes'] = list(motion.RotationAxes)
+            step['angles'] = list(motion.RotationAngles)
+            step['center'] = motion.RotationCenter
+            if len(step['axes']) != len(step['angles']):
+                raise ValueError("Rotation axes and gestures do not match")
+            rotation_angles_at(step['angles'], 0.0)
+        elif kind == 'Translate':
+            step['vector'] = motion.WorldTranslation
+        else:
+            raise ValueError("Unknown Datum operation")
         # Register before copying so an interrupted/partially failed addition is
         # included in the enclosing command's guaranteed scene cleanup.
         self.steps.append(step)
@@ -73,7 +94,17 @@ class SceneSequence(object):
         delta = position - step['position']
         if not delta:
             return
-        transform = self.transforms.Translation(step['vector'] * delta)
+        if step['kind'] == 'Rotate':
+            target = self.transforms.Identity
+            for axis, angle in zip(step['axes'], rotation_angles_at(step['angles'], position)):
+                target = self.transforms.Rotation(angle, axis, step['center']) * target
+            inverse = self.transforms.Identity
+            old = list(zip(step['axes'], rotation_angles_at(step['angles'], step['position'])))
+            for axis, angle in reversed(old):
+                inverse = self.transforms.Rotation(-angle, axis, step['center']) * inverse
+            transform = target * inverse
+        else:
+            transform = self.transforms.Translation(step['vector'] * delta)
         for index in range(len(step['copies'])):
             moved = self.doc.Objects.Transform(step['copies'][index], transform, True)
             if moved == self.empty_guid:

@@ -111,13 +111,13 @@ def run():
             datum_motion = pick_datum_motion(doc, ids)
             if datum_motion is None:
                 return False
-            if datum_motion.WorldTranslation.Length <= doc.ModelAbsoluteTolerance:
+            if getattr(datum_motion, 'Kind', 'Translate') != 'Rotate' and datum_motion.WorldTranslation.Length <= doc.ModelAbsoluteTolerance:
                 print(u"Datum 이동량이 문서 공차보다 작습니다.")
                 return False
-            duration = rs.GetReal(u"{0}번째 부품 이동 시간 (초)".format(len(scene.steps) + 1), 2.0, 0.2, 10.0)
+            duration = rs.GetReal(u"{0}번째 부품 동작 시간 (초)".format(len(scene.steps) + 1), 2.0, 0.2, 10.0)
             if duration is None:
                 return False
-            scene.add(ids, datum_motion.WorldTranslation, duration, datum_motion.Summary)
+            scene.add(ids, datum_motion, duration, datum_motion.Summary)
             print(u"{0}단계 완료: {1}".format(len(scene.steps), datum_motion.Summary))
         seconds = sum(scene.durations)
         fps = rs.GetInteger(u"초당 프레임 수", 15, 5, 30)
@@ -135,7 +135,7 @@ def run():
         samples = frame_times(scene.durations, fps)
         intervals = len(samples) - 1
         move_to = scene.seek
-        datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 else u"순차 이동 {0}단계 · 총 {1:.2f}초".format(len(scene.steps), seconds)
+        datum_summary = scene.steps[0]['summary'] if len(scene.steps) == 1 else u"순차 동작 {0}단계 · 총 {1:.2f}초".format(len(scene.steps), seconds)
         move_to(0.0)
         accepted, keep_png = show_preview(view, seconds, intervals, move_to, datum_summary, samples)
         if not accepted:

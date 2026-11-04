@@ -27,6 +27,8 @@ internal static class CaptureApi
   var objById = doc.Objects.FindId(id);
   var copy = doc.Objects.Transform(id, Rhino.Geometry.Transform.Identity, false);
   var move = Rhino.Geometry.Transform.Translation(new Rhino.Geometry.Vector3d(1, 0, 0));
+  var rotation = Rhino.Geometry.Transform.Rotation(System.Math.PI / 2, Rhino.Geometry.Vector3d.ZAxis, Rhino.Geometry.Point3d.Origin);
+  rotation = rotation * rotation;
   copy = doc.Objects.Transform(copy, move, true);
   bool hidden = doc.Objects.Hide(id, false);
   bool shown = doc.Objects.Show(id, false);

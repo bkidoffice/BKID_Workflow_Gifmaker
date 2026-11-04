@@ -1,6 +1,7 @@
 // Gumball interaction adapted from McNeel's ex_gumball.cs and
 // SampleCsGumballCylinder.cs. See third_party/mcneel/License.md and docs/SOURCES.md.
 using System;
+using System.Collections.Generic;
 using Rhino;
 using Rhino.Collections;
 using Rhino.Commands;
@@ -18,6 +19,10 @@ namespace BKID.GifMaker
         public Vector3d WorldTranslation { get; internal set; }
         public double[] LocalTranslation { get; internal set; }
         public string Summary { get; internal set; }
+        public string Kind { get; internal set; }
+        public Point3d RotationCenter { get; internal set; }
+        public Vector3d[] RotationAxes { get; internal set; }
+        public double[] RotationAngles { get; internal set; }
     }
 
     public static class DatumMotion
@@ -27,6 +32,19 @@ namespace BKID.GifMaker
             var cancelled = new DatumMotionResult();
             Plane datum;
             if (!DefineDatum(doc, out datum)) return cancelled;
+            bool rotate;
+            using (var mode = new GetOption())
+            {
+                mode.SetCommandPrompt("Datum 기능 선택: Move=이동 / Rotate=회전 (Enter=Move)");
+                mode.AddOption("Move"); int rotation = mode.AddOption("Rotate");
+                mode.AcceptNothing(true);
+                var result = mode.Get();
+                if (result == GetResult.Cancel || mode.CommandResult() != Result.Success) return cancelled;
+                rotate = result == GetResult.Option && mode.OptionIndex() == rotation;
+            }
+            var rotationAxes = new List<Vector3d>();
+            var rotationAngles = new List<double>();
+            var rotationLabels = new List<string>();
             var objects = new TransformObjectList();
             foreach (var id in ids)
             {
@@ -44,9 +62,9 @@ namespace BKID.GifMaker
                 var frame = ball.Frame; frame.Plane = datum; ball.Frame = frame;
                 var appearance = new GumballAppearanceSettings
                 {
-                    TranslateXEnabled = true, TranslateYEnabled = true, TranslateZEnabled = true,
+                    TranslateXEnabled = !rotate, TranslateYEnabled = !rotate, TranslateZEnabled = !rotate,
                     TranslateXYEnabled = false, TranslateYZEnabled = false, TranslateZXEnabled = false,
-                    RotateXEnabled = false, RotateYEnabled = false, RotateZEnabled = false,
+                    RotateXEnabled = rotate, RotateYEnabled = rotate, RotateZEnabled = rotate,
                     ScaleXEnabled = false, ScaleYEnabled = false, ScaleZEnabled = false,
                     RelocateEnabled = false, MenuEnabled = false, FreeTranslate = 0
                 };
@@ -58,7 +76,9 @@ namespace BKID.GifMaker
                     doc.Views.Redraw();
                     using (var drag = new DatumDrag(conduit))
                     {
-                        drag.SetCommandPrompt("Datum X·Y·Z 화살표를 드래그하세요. Enter: 이동 확정 / Esc: 취소");
+                        drag.SetCommandPrompt(rotate
+                            ? "Datum X·Y·Z 회전 링을 드래그하세요. Enter: 회전 확정 / Esc: 취소"
+                            : "Datum X·Y·Z 화살표를 드래그하세요. Enter: 이동 확정 / Esc: 취소");
                         drag.AcceptNothing(true);
                         drag.AddTransformObjects(objects);
                         var result = drag.MoveGumball();
@@ -67,6 +87,12 @@ namespace BKID.GifMaker
                         if (result == GetResult.Point)
                         {
                             if (conduit.PickResult.Mode == GumballMode.None) continue;
+                            if (rotate && drag.IsRotation && Math.Abs(drag.RotationAngle) > 1e-9)
+                            {
+                                rotationAxes.Add(drag.RotationAxis);
+                                rotationAngles.Add(drag.RotationAngle);
+                                rotationLabels.Add(string.Format("{0} {1:+0.###;-0.###;0}°", drag.RotationAxisName, drag.RotationAngle * 180 / Math.PI));
+                            }
                             conduit.PreTransform = conduit.TotalTransform;
                             var current = ball.Frame;
                             current.Plane = conduit.Gumball.Frame.Plane;
@@ -74,6 +100,14 @@ namespace BKID.GifMaker
                             continue;
                         }
                         if (result != GetResult.Nothing) return cancelled;
+                        if (rotate)
+                        {
+                            if (rotationAngles.Count == 0)
+                            { RhinoApp.WriteLine("회전량이 없습니다. 회전 링을 드래그하세요."); continue; }
+                            return new DatumMotionResult { Accepted = true, Datum = datum, Kind = "Rotate",
+                                RotationCenter = datum.Origin, RotationAxes = rotationAxes.ToArray(), RotationAngles = rotationAngles.ToArray(),
+                                Summary = "Datum 회전: " + string.Join(" → ", rotationLabels.ToArray()) };
+                        }
                         var transform = conduit.PreTransform;
                         var world = new Vector3d(transform.M03, transform.M13, transform.M23);
                         if (world.Length <= doc.ModelAbsoluteTolerance)
@@ -85,7 +119,7 @@ namespace BKID.GifMaker
                             datum.YAxis.X, datum.YAxis.Y, datum.YAxis.Z, datum.ZAxis.X, datum.ZAxis.Y, datum.ZAxis.Z };
                         var local = DatumCoordinates.ToLocal(new[] { world.X, world.Y, world.Z }, axes);
                         var rebuilt = DatumCoordinates.ToWorld(local, axes);
-                        return new DatumMotionResult { Accepted = true, Datum = datum,
+                        return new DatumMotionResult { Accepted = true, Datum = datum, Kind = "Translate",
                             WorldTranslation = new Vector3d(rebuilt[0], rebuilt[1], rebuilt[2]), LocalTranslation = local,
                             Summary = string.Format("Datum 이동: ΔX {0:0.###}, ΔY {1:0.###}, ΔZ {2:0.###} ({3})",
                                 local[0], local[1], local[2], doc.ModelUnitSystem) };
@@ -159,6 +193,12 @@ namespace BKID.GifMaker
     internal sealed class DatumDrag : GetTransform
     {
         private readonly GumballDisplayConduit conduit;
+        private RotationTracker rotation;
+        private Vector3d rotationBasis;
+        public bool IsRotation { get { return rotation != null; } }
+        public double RotationAngle { get { return rotation == null ? 0 : rotation.Angle; } }
+        public Vector3d RotationAxis { get; private set; }
+        public string RotationAxisName { get; private set; }
         internal DatumDrag(GumballDisplayConduit conduit) { this.conduit = conduit; }
         public override Transform CalculateTransform(Rhino.Display.RhinoViewport viewport, Point3d point)
         { return conduit.InRelocate ? conduit.PreTransform : conduit.TotalTransform; }
@@ -174,6 +214,15 @@ namespace BKID.GifMaker
                 if (!e.Viewport.GetFrustumLine(e.WindowPoint.X, e.WindowPoint.Y, out line)) return;
                 pick.PickLine = line; pick.UpdateClippingPlanes();
                 conduit.PickGumball(pick, this);
+                var plane = conduit.BaseGumball.Frame.Plane;
+                if (conduit.PickResult.Mode == GumballMode.RotateX)
+                { RotationAxis = plane.XAxis; rotationBasis = plane.YAxis; RotationAxisName = "X"; }
+                else if (conduit.PickResult.Mode == GumballMode.RotateY)
+                { RotationAxis = plane.YAxis; rotationBasis = plane.ZAxis; RotationAxisName = "Y"; }
+                else if (conduit.PickResult.Mode == GumballMode.RotateZ)
+                { RotationAxis = plane.ZAxis; rotationBasis = plane.XAxis; RotationAxisName = "Z"; }
+                else return;
+                rotation = new RotationTracker();
             }
         }
         protected override void OnMouseMove(GetPointMouseEventArgs e)
@@ -181,7 +230,18 @@ namespace BKID.GifMaker
             if (conduit.PickResult.Mode == GumballMode.None) return;
             Line line;
             if (!e.Viewport.GetFrustumLine(e.WindowPoint.X, e.WindowPoint.Y, out line)) line = Line.Unset;
-            if (conduit.UpdateGumball(e.Point, line)) base.OnMouseMove(e);
+            if (conduit.UpdateGumball(e.Point, line))
+            {
+                if (rotation != null)
+                {
+                    var plane = conduit.Gumball.Frame.Plane;
+                    var current = RotationAxisName == "X" ? plane.YAxis : RotationAxisName == "Y" ? plane.ZAxis : plane.XAxis;
+                    double sine = RotationAxis * Vector3d.CrossProduct(rotationBasis, current);
+                    double cosine = rotationBasis * current;
+                    rotation.Update(Math.Atan2(sine, cosine));
+                }
+                base.OnMouseMove(e);
+            }
         }
         protected override void OnDynamicDraw(GetPointDrawEventArgs e) { }
         internal GetResult MoveGumball()

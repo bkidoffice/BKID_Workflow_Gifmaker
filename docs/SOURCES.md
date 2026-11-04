@@ -35,3 +35,5 @@ GIF89a 인코더는 이 프로젝트에서 구현했습니다. 프레임별 적�
 1.5.0: McNeel 공식 샘플 커밋 `8462fc3487f8b7a58595ef73f6a5c09f92717f60`의 `rhinocommon/snippets/from_rhinocommon/cs/ex_gumball.cs`, `rhinocommon/cs/SampleCsCommands/SampleCsGumballCylinder.cs`, `License.md`를 읽었습니다. PickContext→PickGumball→UpdateGumball→GetTransform의 shaded display feedback 흐름을 Datum 좌표계·translation-only 조작으로 적용했습니다. `third_party/mcneel/License.md`에 원문 사용 허가/저작권 고지를 보존하고 설치 패키지에도 포함합니다. Rhino 6 SDK로 실제 조작 코드를 컴파일하고 `TestDatum`은 배포 좌표 변환 소스 파일을 직접 링크합니다.
 
 1.6.0: Rhino 6 SDK의 GetObject.GetMultiple, AcceptNothing, EnablePreSelect 및 SetCustomGeometryFilter로 다음 파트 선택을 구현했습니다. Enter 완료와 Esc 취소를 구분하고, 이미 등록한 임시 파트 ID를 필터로 제외합니다. 자체 `motion_sequence.py`가 단계별 시간→각 파트 진행률을 계산하고 모든 단계의 경계 캡처를 보장합니다. 두 파트의 순차 자세·뒤로 탐색·선택/Datum 취소 후 복원을 모의 Rhino 문서와 실제 FFmpeg 출력으로 검증했습니다.
+
+1.7.0: 기존 McNeel Gumball 흐름에서 TranslateX/Y/Z와 RotateX/Y/Z를 선택한 기능에 맞게 전환합니다. 회전 링의 기준/현재 평면 축으로 atan2 각도를 계산하고 자체 RotationTracker가 ±π 경계를 풀어 회전 수·방향을 기록합니다. 회전 재생은 RhinoCommon Transform.Rotation(angle, axis, DatumOrigin)을 실제 드래그 순서로 합성하고 이전 자세 역변환으로 탐색합니다. 배포 소스의 각도 추적·좌표 변환 테스트와 실제 GIF 생성 통합 테스트를 실행하고 초기 Rhino 6 SDK로 컴파일했습니다.

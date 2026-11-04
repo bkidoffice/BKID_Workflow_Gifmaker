@@ -13,7 +13,7 @@ from System.Drawing.Imaging import ImageFormat
 
 class MotionPreview(forms.Dialog[bool]):
     def __init__(self, view, seconds, intervals, move_to, datum_summary=None, samples=None):
-        self.Title = u"BKID GIF Maker - 이동 미리보기"
+        self.Title = u"BKID GIF Maker - 동작 미리보기"
         self.Resizable = False
         self.Padding = drawing.Padding(16)
         self.seconds, self.intervals = seconds, intervals

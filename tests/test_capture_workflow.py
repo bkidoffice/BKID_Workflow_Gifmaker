@@ -11,6 +11,7 @@ import tempfile
 import shutil
 import subprocess
 import types
+import math
 import unittest
 from unittest.mock import patch
 
@@ -18,11 +19,32 @@ from PIL import Image
 
 
 class Vector:
-    def __init__(self, x): self.x = x
+    def __init__(self, x, y=0, z=0): self.x, self.y, self.z = x, y, z
     @property
-    def Length(self): return abs(self.x)
-    def __sub__(self, other): return Vector(self.x - other.x)
-    def __mul__(self, scale): return Vector(self.x * scale)
+    def Length(self): return math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
+    def __sub__(self, other): return Vector(self.x - other.x, self.y - other.y, self.z - other.z)
+    def __mul__(self, scale): return Vector(self.x * scale, self.y * scale, self.z * scale)
+
+
+class Matrix:
+    def __init__(self, rows=None): self.rows = rows or [[float(i == j) for j in range(4)] for i in range(4)]
+    def __mul__(self, other):
+        return Matrix([[sum(self.rows[i][k] * other.rows[k][j] for k in range(4)) for j in range(4)] for i in range(4)])
+    def apply(self, point):
+        p = [point.x, point.y, point.z, 1]
+        return Vector(*[sum(self.rows[i][j] * p[j] for j in range(4)) for i in range(3)])
+    @staticmethod
+    def translation(vector):
+        result = Matrix()
+        result.rows[0][3], result.rows[1][3], result.rows[2][3] = vector.x, vector.y, vector.z
+        return result
+    @staticmethod
+    def rotation(angle, axis, center):
+        x, y, z = axis.x / axis.Length, axis.y / axis.Length, axis.z / axis.Length
+        c, s, t = math.cos(angle), math.sin(angle), 1 - math.cos(angle)
+        r = Matrix([[t*x*x+c, t*x*y-s*z, t*x*z+s*y, 0], [t*x*y+s*z, t*y*y+c, t*y*z-s*x, 0],
+                    [t*x*z-s*y, t*y*z+s*x, t*z*z+c, 0], [0, 0, 0, 1]])
+        return Matrix.translation(center) * r * Matrix.translation(center * -1)
 
 
 class Obj:
@@ -30,6 +52,7 @@ class Obj:
     def __init__(self, key, x=0, root=None):
         self.Id, self.x, self.IsHidden, self.selected = key, x, False, True
         self.root = key if root is None else root
+        self.y, self.z = 0, 0
     def Select(self, selected): self.selected = selected
 
 
@@ -45,7 +68,9 @@ class Objects:
         original = self.items[key]
         key2 = self.next_id
         self.next_id += 1
-        self.items[key2] = Obj(key2, original.x + delta.x, original.root)
+        point = delta.apply(Vector(original.x, original.y, original.z)) if isinstance(delta, Matrix) else Vector(original.x + delta.x, original.y + delta.y, original.z + delta.z)
+        self.items[key2] = Obj(key2, point.x, original.root)
+        self.items[key2].y, self.items[key2].z = point.y, point.z
         self.items[key2].selected = False
         if delete: del self.items[key]
         return key2
@@ -57,7 +82,7 @@ class Objects:
 
 
 class WorkflowTests(unittest.TestCase):
-    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False):
+    def run_capture(self, path, cancel_at=None, fail_move=False, preview_positions=(), preview_accept=True, preview_error=False, save_accept=True, default_resolution=False, encoder_error=False, keep_png=False, datum_cancel=False, sequence=False, cancel_next=False, cancel_second_datum=False, rotate=False):
         objects = Objects()
         if sequence:
             objects.items[2] = Obj(2, 100)
@@ -94,13 +119,15 @@ class WorkflowTests(unittest.TestCase):
                     raise AssertionError('GIF capture must request Rhino alpha')
                 states = {o.root: o.x for o in objects.items.values() if not o.IsHidden}
                 x = states[1]
-                captured.append((x, states[2]) if sequence else x)
+                point = next(o for o in objects.items.values() if o.root == 1 and not o.IsHidden)
+                captured.append((x, states[2]) if sequence else (point.x, point.y) if rotate else x)
                 width, height = self.Width, self.Height
                 def save_png(path, image_format):
                     color = (125, 129, 133, 255) if x == 0 else (205, 210, 215, 255)
                     image = Image.new('RGBA', (width, height), color)
                     image.putpixel((0, 0), (0, 0, 0, 0))
                     if sequence: image.putpixel((2, 0), (int(states[2]), 0, 0, 255))
+                    if rotate: image.putpixel((3, 0), (int(round(abs(point.y) * 100)), 0, 0, 255))
                     image.save(path, 'PNG')
                 return types.SimpleNamespace(x=x, Width=width, Height=height, Save=save_png, Dispose=lambda: None)
 
@@ -117,7 +144,7 @@ class WorkflowTests(unittest.TestCase):
             return mod
 
         module('Rhino', Display=types.SimpleNamespace(RhinoPageView=type('PageView', (), {}), ViewCapture=Capture),
-               Geometry=types.SimpleNamespace(Transform=types.SimpleNamespace(Identity=Vector(0), Translation=lambda v: v)),
+               Geometry=types.SimpleNamespace(Transform=types.SimpleNamespace(Identity=Matrix(), Translation=Matrix.translation, Rotation=Matrix.rotation)),
                RhinoApp=types.SimpleNamespace(WriteLine=lambda msg: None, Wait=lambda: None),
                UI=types.SimpleNamespace(StatusBar=StatusBar))
         points = iter((Vector(0), Vector(10)))
@@ -131,7 +158,7 @@ class WorkflowTests(unittest.TestCase):
             saves.append(True)
             return str(path) if save_accept else None
         module('rhinoscriptsyntax', GetObjects=lambda *a, **k: [1], GetPoint=lambda *a: next(points),
-               GetReal=lambda *a: .2, GetInteger=get_integer, SaveFileName=save_dialog)
+               GetReal=lambda *a: .4 if rotate else .2, GetInteger=get_integer, SaveFileName=save_dialog)
         module('scriptcontext', doc=doc, escape_test=escape)
         module('System', Array=None, Byte=None, Guid=types.SimpleNamespace(Empty=0), IntPtr=None,
                IO=types.SimpleNamespace(File=types.SimpleNamespace(Replace=lambda a, b, c: Path(a).replace(b), Move=lambda a, b: Path(a).rename(b))))
@@ -153,17 +180,19 @@ class WorkflowTests(unittest.TestCase):
                     # The first part is visibly at its endpoint when the next
                     # part picker opens. Its animation copies cannot be picked.
                     first = next(o for o in objects.items.values() if o.root == 1 and not o.IsHidden)
-                    self.assertAlmostEqual(first.x, 10)
+                    self.assertAlmostEqual(first.x, 2 if rotate else 10)
                     self.assertIn(first.Id, excluded)
                     self.assertTrue(allow_finish)
                 return next(selections)
             capture.pick_parts = choose
             capture.pick_datum_motion = lambda doc, ids: None if datum_cancel or (cancel_second_datum and ids == [2]) else types.SimpleNamespace(
-                WorldTranslation=Vector(10 if ids == [1] else 20), Summary='Datum X:10 Y:0 Z:0')
+                Kind='Rotate' if rotate else 'Translate', WorldTranslation=Vector(0 if rotate else 10 if ids == [1] else 20),
+                RotationCenter=Vector(1), RotationAxes=[Vector(0, 0, 1)], RotationAngles=[math.pi],
+                Summary='Datum 회전 Z180' if rotate else 'Datum X:10 Y:0 Z:0')
             from ffmpeg_encoder import encode_frames
             def assemble(frames, output, progress):
                 # Exercise the actual FFmpeg commands against the captured PNGs.
-                self.assertEqual(len(captured), 3 if sequence else 2)
+                self.assertEqual(len(captured), 3 if sequence or rotate else 2)
                 if encoder_error:
                     raise RuntimeError('Could not assemble PNG captures')
                 def run(executable, arguments, directory, report):
@@ -178,12 +207,15 @@ class WorkflowTests(unittest.TestCase):
                 if sequence:
                     self.assertIn('2', datum_summary)
                     self.assertEqual(samples, [0, .2, .4])
+                elif rotate:
+                    self.assertIn('회전', datum_summary)
                 else:
                     self.assertEqual(datum_summary, 'Datum X:10 Y:0 Z:0')
                 for value in preview_positions:
                     move_to(value)
                     states = {o.root: o.x for o in objects.items.values() if not o.IsHidden}
-                    scrubbed.append((states[1], states[2]) if sequence else states[1])
+                    point = next(o for o in objects.items.values() if o.root == 1 and not o.IsHidden)
+                    scrubbed.append((states[1], states[2]) if sequence else (point.x, point.y) if rotate else states[1])
                 if preview_error:
                     raise RuntimeError('Preview render failed')
                 return preview_accept, keep_png
@@ -200,6 +232,10 @@ class WorkflowTests(unittest.TestCase):
             for actual, value in zip(scrubbed, preview_positions):
                 self.assertAlmostEqual(actual[0], 10 * min(1, value * 2))
                 self.assertAlmostEqual(actual[1], 100 + 20 * max(0, value * 2 - 1))
+        elif rotate:
+            for actual, value in zip(scrubbed, preview_positions):
+                self.assertAlmostEqual(actual[0], 1 - math.cos(math.pi * value))
+                self.assertAlmostEqual(actual[1], -math.sin(math.pi * value))
         else:
             for actual, value in zip(scrubbed, preview_positions): self.assertAlmostEqual(actual, 10 * value)
         self.assertEqual(len(saves), 0 if datum_cancel or fail_move or cancel_next or cancel_second_datum or not preview_accept or preview_error else 1)
@@ -326,6 +362,15 @@ class WorkflowTests(unittest.TestCase):
             result, _ = self.run_capture(path, sequence=True, cancel_second_datum=True)
             self.assertFalse(result)
             self.assertFalse(path.exists())
+
+    def test_rotate_choice_exports_arc_and_scrubs_back_about_datum_origin(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'rotate.gif'
+            result, positions = self.run_capture(path, rotate=True, preview_positions=(0, .5, 1, .25, 0))
+            self.assertTrue(result)
+            for actual, expected in zip(positions, ((0, 0), (1, -1), (2, 0))):
+                for a, b in zip(actual, expected): self.assertAlmostEqual(a, b)
+            with Image.open(path) as gif: self.assertEqual(gif.n_frames, 3)
 
 
 if __name__ == '__main__':

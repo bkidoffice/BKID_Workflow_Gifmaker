@@ -20,3 +20,11 @@ try { DatumCoordinates.ToLocal(new double[] { double.NaN, 0, 0 }, rotated); }
 catch (ArgumentException) { invalid = true; }
 if (!invalid) throw new Exception("Invalid displacement was accepted.");
 Console.WriteLine("PASS: tilted local Z direction and invalid coordinate rejection.");
+foreach (int sign in new[] { 1, -1 })
+{
+    var tracker = new RotationTracker();
+    foreach (double degrees in new double[] { 90, 170, -170, -90, 0, 90, 170, -170, -90, 0 })
+        tracker.Update(sign * degrees * Math.PI / 180);
+    if (Math.Abs(tracker.Angle - sign * 4 * Math.PI) > 1e-10) throw new Exception("Full-turn direction/angle was lost.");
+}
+Console.WriteLine("PASS: positive/negative 720-degree drag tracking across the 180-degree boundary.");
