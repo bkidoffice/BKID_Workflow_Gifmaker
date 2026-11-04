@@ -1,0 +1,92 @@
+<?xml version='1.0' encoding='utf-8'?>
+<RhinoUI major_ver="2" minor_ver="0" guid="7025a539-8aef-59f0-ac19-83bf9aee3258" localize="False" default_language_id="1033" dpi_scale="100">
+  <extend_rhino_menus>
+    <menu guid="61ce7e88-275a-5581-af37-412e6e7a26b1">
+      <text>
+        <locale_1033>Extend Rhino Menus</locale_1033>
+      </text>
+    </menu>
+  </extend_rhino_menus>
+  <menus />
+  <tool_bar_groups>
+    <tool_bar_group guid="600d559a-9915-5e73-b0ec-caa3913927bc" dock_bar_guid32="00000000-0000-0000-0000-000000000000" dock_bar_guid64="69312b44-ee70-5765-8385-860f9207e708" active_tool_bar_group="bc58d577-acd3-52c3-ad01-766e03ef9bec" single_file="False" hide_single_tab="True" point_floating="150,150">
+      <text>
+        <locale_1033>BKID Workflowboost</locale_1033>
+      </text>
+      <tool_bar_group_item guid="bc58d577-acd3-52c3-ad01-766e03ef9bec" major_version="1" minor_version="1">
+        <text>
+          <locale_1033>BKID Workflowboost</locale_1033>
+        </text>
+        <tool_bar_id>bc58d577-acd3-52c3-ad01-766e03ef9bec</tool_bar_id>
+      </tool_bar_group_item>
+      <dock_bar_info dpi_scale="100" dock_bar="False" docking="True" horz="True" visible="True" floating="True" mru_float_style="8192" bar_id="59395" mru_width="100" point_pos="150,150" float_point="150,150" rect_mru_dock_pos="0,0,100,70" dock_location_u="0" dock_location="top" float_size="100,70" />
+    </tool_bar_group>
+  </tool_bar_groups>
+  <tool_bars>
+    <tool_bar guid="bc58d577-acd3-52c3-ad01-766e03ef9bec" bitmap_id="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd" item_display_style="control_only">
+      <text>
+        <locale_1033>BKID Workflowboost</locale_1033>
+      </text>
+      <tool_bar_item guid="a1239d05-0c48-5c8d-b4c1-469b47103d22">
+        <text>
+          <locale_1033>GifMaker</locale_1033>
+        </text>
+        <left_macro_id>8a275a7f-2fab-5cdc-9a78-2f6fb1827346</left_macro_id>
+        <right_macro_id>c848457b-ca72-53c0-8f07-9ea42f6b4692</right_macro_id>
+      </tool_bar_item>
+    </tool_bar>
+  </tool_bars>
+  <macros>
+    <macro_item guid="8a275a7f-2fab-5cdc-9a78-2f6fb1827346" bitmap_id="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd">
+      <text>
+        <locale_1033>GifMaker</locale_1033>
+      </text>
+      <tooltip>
+        <locale_1033>부품을 직선 이동하며 GIF 저장</locale_1033>
+      </tooltip>
+      <help_text>
+        <locale_1033>부품을 직선 이동하며 GIF 저장</locale_1033>
+      </help_text>
+      <button_text>
+        <locale_1033>GifMaker</locale_1033>
+      </button_text>
+      <menu_text>
+        <locale_1033>GifMaker</locale_1033>
+      </menu_text>
+      <script>! _BKIDGifMakerCapture</script>
+    </macro_item>
+    <macro_item guid="c848457b-ca72-53c0-8f07-9ea42f6b4692" bitmap_id="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd">
+      <text>
+        <locale_1033>GifMaker</locale_1033>
+      </text>
+      <tooltip>
+        <locale_1033>이동 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
+      </tooltip>
+      <help_text>
+        <locale_1033>이동 시간·FPS·해상도 설정 후 GIF 저장</locale_1033>
+      </help_text>
+      <button_text>
+        <locale_1033>GifMaker</locale_1033>
+      </button_text>
+      <menu_text>
+        <locale_1033>GifMaker</locale_1033>
+      </menu_text>
+      <script>! _BKIDGifMakerCapture</script>
+    </macro_item>
+  </macros>
+  <bitmaps>
+    <small_bitmap item_width="16" item_height="16">
+      <bitmap_item guid="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd" index="0" />
+      <bitmap>iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACLUlEQVR4nK2TzUtUYRTGf+9773CVxsgcp4YaiaIYExWksKDaRbNoEziLFpm7IotaBS5CXBYtCusPqFnOIqg2tUhJUCuylKgIZNy50Ax0mLnfp8VcZ8ZwU/TsXg7n4fk4r6IG0YCuvwlASTRTgNEwC0GF/A+oKrsS9tqdiNWPeBY6ZuDzjFW1DEBCUphcIPQCVMzFc2ZZa/oGosxImo+vLqGDIWCaEAuTSWAZUDusX+1lf+d5Iaggxgm0egqMRLtiApB0xkk44zVpCkZH0VrXY9EA7eWHJJ1HUTamCUiU01cMcSNfiMDYGCGEu7LZ7Mj6erg+Pf36PjR/BzsKF2ELEu5pUnIRy8vm8/n9qVTq3PXh4eJSsSif5uYkNzDwsQk6VIMgHVUECfeMYRlnKdN57erbgWN93QuXBwcLbW27D0xNTbnzC/NOJpPp6zjS2SeIyuVyqsYSWdBahSYe5cMHS81aq9Z4PN7S093D4uKiKpdKdHUdpVKpbJFt1o7lZ2zSS9jNxE3rcb7nVebQzMuZ2Q/x1dWVO+l0Ou24Hm8mJt5vbCx9BiWFQs2/VC9sj3uDpHtlm1tp7T/ef6+399RtIEZSbpG0bzbsbtZoj5OwazUaGnK5nKGU+rPGB/W6qzVGUBsY5hBJNwUxK1ClkUKh5QugYvvWun0/fjcUKYN5EvGfNGRAUKWXPKJ/gGshMU2g1zY9ek7rCornhHaI1i8I5V00C7ax/HeoG/zH7/wb3GLbzgpOixkAAAAASUVORK5CYII=</bitmap>
+    </small_bitmap>
+    <normal_bitmap item_width="24" item_height="24">
+      <bitmap_item guid="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd" index="0" />
+      <bitmap>iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAADz0lEQVR4nNWVzU9cVRjGf+fcuTMMLS3KzNwZPlwAAUsXFgYKStSNH0HTYmKnSRNNbGI0LtTERKMb8SPRxLjqxoihfwAsjC5c0rhwoYaEtkBjxNS0kPLllLEDw70z97wuBgbuOGpM7MKT3MU55znPe57nvu974C4P9eclqbGmpPbxf4O9S6PqBmKTvNNIuKGEYv8mMbaYUcUAtGcuzNbx+v2jKIpY3JrJQX8QC2IB4HgnSfg54m4Jxxcc15AUIeGe28WFyh+QcM/t7gkJX4i7RRKyieMNHuQMBeNgofQRRH2B8RdBFBrQMruLMBVsyb2Mbb2DiEBREN2B5iUMVg2nDihwxCPmpWuAKiOTwVKqyt+Y20tCvGoFOnDSYGNhY5kUPRKmVaL0SBjG9nBaRNTUFL4IDQK20nV0dn4TAUliYWOwaykoEyQK7TgyTrO07e0oQET02NhYxU5b6+fPns1cf/Lxx74DHgGgVTpJyAQJaQ9wHgiyrzguJ4h5aVKSBumsENt2+qmRkUsXJybkl8VFuTw7Kx+8/56k+/ouOodI1LLz4E9WgHDP9n0oXlMYD0N9qmt1afzTySaoL7z19pv93d1dw729vV5dXV0oEonIycEhc+XK1fMb67/NsfXrhXT6ZTUzM16sCiAalCG2M4K2H0a5PysdCRvXu/bZx18+13P8iVOFQoH+dL9pa2srjY9/Hmpvbyebva2M8WVgYMD/4cfvi6BKhw8/GsjMKp/MNug1jM6huE1J8pYd67px4yarqyt+NFqnHcfhzLNn1Pz8vLLtkBodfYZoNIop+rUc2gugDIjFRv23UFhD2yfElI4Rigxd+8ma3Mpn7+TzW+tLS8tr7s5OKBKJlFpaWkzSSfrGGJXP5y3R2gKx8vnuQPYemIgCJdy7cQTdlMS4VjgcUd5KeOGTD1/viDbeX3jj1ReTQ8MPXTh1+vRwNpulqSnG8vKyuTQ9Pb66fvXdlRXWa8qopFRMunBkivh+5uiAieX7tDY3n39waOj64ED/NITKhZWUYyTlK5p2ugOcu5NyJce3h0mJ4Ow8DXPlQkPsTGbSEhEFaKUqohtg0kJFyoUWy4+QEiHuDQc4A5NyqygSc/v+QioAmUzGqvIXYvk+HCn+c7PThFDqFeLeYrnR2Qpxv2albmFP9tSU8kn+3iNSP4opCWgB0wGEqptdMIDCYMiBvICyQogxCBqjbgIL7Ke1wUQeQFkfoXxBtEKkhCGHxg9SBiWESNHIds4HEXSjYFDk2IKqBwexOcoh2NyjUtQftbjFJqjS31n8n47//6P/B2JVlcZNxHyyAAAAAElFTkSuQmCC</bitmap>
+    </normal_bitmap>
+    <large_bitmap item_width="32" item_height="32">
+      <bitmap_item guid="3bdbf591-cc23-5d4e-928e-fbdb10fd6dfd" index="0" />
+      <bitmap>iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAFZklEQVR4nO2XTWxU1xXHf+e+O/Z4/BHzMW8yrh2DYtLKg0uc4jSfZdGmAimkSkjoIigL2i5KU1VClZqqUkZVpCxCJWi7gCBVVSWysVoVpLJAikQRC1dxsjD5aKJENiGA7YnUgMfG8z5PF+8x2MwwoZtmw9nc8+7HOf977rn/ex7cka9YpHm3Oi3WxCB6i3UCmBbuotsF9n+TFRFQAVGGtJ2F4DCaWYP40YopEcbJEAd/oZI9kUTp+o5S3Q1+gNgXUD8CnCRSCtLmoMF/6Mns4xPx6r4A2wCpikV5FkM3tK0+JAeInHPAidXgU13jB7A8Q9y2Yl9pG+siV/kF4K101wggQ4zPAnFgkPh5cKooghATWIO1H9cjckMS3bb9iTA8i4QxagVBCaMuxLyBkQUc4pvdNQJIUGcQlEr7SZCw6ZxViZjoMisXFC7cZMwh7ysxGZzLDVaaZ6wQgsZ00Zucr9q0ddJMb2ZHFAM4MFxug7czoA7d9AIRRkLoa76XFGliuKg5XN+noEqfrls11gwqOCLJcCZjdltrx5JvAXDovroOVxXXCyho55fYA1CLW9tP3n+JouaSyWquLyqXy2Z8fNxhdRI+vHHD4Jsv/myfPrVzp39XT9choJDaaydf+xWuvx800yoEXyrjOl4nKFWV0dHRwfuGho4+tfPJ6MTx4zo/N+d/9OGH8YHXXtMHx7ZeHhoa+un27UPt/6MbtQxqlrx3hIJ+RL72Hnn/fVx9F/TX5fLz/Qd/d/CHQNvX+orv/uTHP9LK/Fz4eaUSnJuaiv/9wQfx8rVl//Tp0/rg2Jhu3LjxFVA7OPjnbDNvtz6LdbWv47T3IzV1HKTDxr2/3Hty63ce79lbKPS7k5OTk6+/fmTTyOaRLkVl165nzf1btnBteZl/nDzJ5Ftv+UbEnj179uj0+fP7tm3bZs+cOdNwo1ZcwzqbfQ+xPyf2qhCEghAtt5uHHj/z1y0j1f1r136jLZfrCIrF4lhXVxc7dmzX6ekZjhw+rKXNJebnK1KrLeuuZ3aZ6Zlp59SpU0GreK/kgfRe6xIwA3IFVYuIEscSBpLp6FgbVipzMjNTlWx71jPG2Gq1aoZLw5RKJTn0+0M6ev8oT3z/CQmDkMXFJYxt8TatBiAxqFCRCWCCu4MdRKEaEYk6jFo1VxYXl5YG7inmHSNEcWzjOKa7uydcWlxycrkcg4MbKBQKLFxdINfZGedyuVi1debfzIQCKrh+iVheARNEMbFIbN6cfGxi5N5Pv/vAt99/KWNzj87NzR68ePHii1Pnpoa2fmtrlM1mtVarmTAMtXfNmmhudrZ9amqKjJOZB7WXLv3BgcYcaEUIt5Q9e/Z0Hjt2bGlgYOBeEX15c6n0wnPP7WZi4l/+pk2bMjWvJieOHz//6YXPfvv00/e8cfToOy3zIJWUnYbfa8P1DuB6f2SddsN4nYJVkXK5bADK5XI9etms3TZSGv7nY48+oo88/NBSf1/fq0BvMnopR8E7RME7wLC2rfLVFEBRc7ie14qKVevfKfknsmHDwG7Xdb8JIGIAHHqurE2p2Kcw24qK085+7cD1L+F6Vynq+tt8jByp9zoMD4/feIy6FtaT977A9S4n1H47APLePOv9auL49qV5Qp225L0F8n6lGYDmDoQQRHC9JyGoJrZDxWaFqPYJ8x3nV5ZV13W9+9ogkrmPmAjFQAiRdKIiGG1aVzQCCDBAD8Z2gv079ZfVpq15FfgNydlfN5rokbOXjH0ZSCsNeyMssS+EjfVHI4BuQhZknJg1aXGZIBAiJGNB305nrizNE13MO4T8DQ1CNC3tFUWsRfQL7iLg82Zx+Arlzo/JHfkvyAA/pA+0sCcAAAAASUVORK5CYII=</bitmap>
+    </large_bitmap>
+  </bitmaps>
+  <scripts />
+</RhinoUI>

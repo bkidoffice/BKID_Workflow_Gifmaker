@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net45</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>BKID_GifMaker_Setup_1.0.0</AssemblyName>
+    <Version>1.0.0</Version>
+    <AssemblyTitle>BKID GifMaker Setup</AssemblyTitle>
+    <Company>BKID</Company>
+    <LangVersion>7.3</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <ApplicationIcon>../../assets/BKID_GifMaker.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Xml.Linq" />
+    <EmbeddedResource Include="../../installers/BKID_GifMaker_1.0.0.rhi" LogicalName="BKID.Setup.Package.rhi" />
+    <EmbeddedResource Include="../../assets/WizardImage.png" LogicalName="BKID.Setup.Logo.png" />
+  </ItemGroup>
+</Project>

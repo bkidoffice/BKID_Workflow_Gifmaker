@@ -1,0 +1,51 @@
+# BKID Workflowboost GIF Maker 1.0.0
+
+Windows Rhino에서 선택한 부품을 시작점 → 끝점까지 직선 이동시키며 GIF로 저장하는 도구입니다. 원본은 시작 위치에 유지하고 임시 복사본으로 애니메이션을 만듭니다. `.3dm` 파트는 Rhino 문서로 가져오거나 블록으로 삽입한 뒤 선택하세요.
+
+## 설치
+
+1. Rhino를 모두 종료합니다.
+2. `installers/BKID_GifMaker_Setup_1.0.0.exe`를 실행합니다.
+3. 설치 버튼을 누르고 Rhino Installer에서 **현재 사용자** 설치를 선택합니다.
+4. Rhino를 실행합니다. 최초 실행 시 GIF Maker 아이콘이 있는 `BKID Workflowboost` 툴바가 표시됩니다. 이후 도킹·표시 상태는 Rhino 설정을 따릅니다.
+5. 툴바를 다시 열려면 `BKIDGifMaker`, 직접 실행하려면 `BKIDGifMakerCapture` 명령을 입력합니다.
+
+EXE는 기존 AutoCrop과 같은 설치 창·재설치 확인·RHI 실행·결과 파일 검증 방식을 사용합니다. 재설치에서 **아니오**를 선택하면 기존 파일을 유지합니다. **예**를 선택하면 GIF Maker의 기존 관리 파일을 삭제한 후 설치하며, 취소·실패 시 이전 버전을 자동 복원하지 않습니다. AutoCrop은 별도 플러그인 GUID로 유지됩니다. 설치 EXE에는 코드 서명이 없습니다.
+
+대체 설치: `installers/BKID_GifMaker_1.0.0.rhi`를 더블클릭하여 Rhino Installer로 설치할 수 있습니다. 이 경로는 EXE의 사전 확인·정리 절차를 거치지 않습니다.
+
+## 사용
+
+1. 시작 위치부터 끝 위치까지 모두 보이도록 **모델 뷰포트**를 잡습니다. 카메라는 고정되며 자동 줌·크롭은 하지 않습니다.
+2. GIF Maker 아이콘을 누르고 움직일 부품을 선택합니다. 여러 객체를 함께 선택할 수 있습니다.
+3. 시작 기준점과 끝점을 찍습니다. 두 점의 차이가 모델 단위의 이동 벡터가 됩니다.
+4. 이동 시간(0.2–10초), FPS(5–30), 출력 너비(160–1600px)를 입력합니다. 높이는 뷰포트 종횡비를 유지하고 최대 1600px입니다.
+5. GIF 저장 위치를 선택합니다. 시작·끝에서 각각 0.5초 멈추고 반복 재생합니다.
+
+현재 뷰의 주변 모델과 배경을 함께 캡처합니다. GIF는 불투명 256색 RGB 3:3:2 팔레트이며 미세한 그라데이션에 색 띠가 보일 수 있습니다. 렌더링·해상도·프레임 수에 따라 생성 시간이 늘어납니다. Esc를 누르면 다음 프레임 처리 전 취소합니다. 처리 중 원본을 잠시 숨기고 임시 복사본을 이동하며, 종료·취소·실패 시 복원합니다. 기존 GIF는 새 파일 작성이 끝난 후 교체됩니다.
+
+## 개발 및 검증
+
+대상: Windows Rhino 6 및 Rhino 8의 내장 IronPython 2.7 (`RunPythonScript`). Rhino 8 CPython 3 실행 경로는 지원·검증하지 않았습니다. 사용자 PC에 Pillow·FFmpeg를 설치할 필요가 없습니다.
+
+빌드: .NET SDK 8 및 Python 3을 설치하고 저장소 루트에서 실행합니다.
+
+```sh
+python tools/build_rhi.py --dotnet /path/to/dotnet
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+```
+
+빌더는 잠금 파일로 의존성을 복원하고 실제 RHP·Windows EXE를 컴파일합니다. Rhino 6.0.18016.23451 SDK로 동적 캡처 API를 별도 컴파일하고, RHP 식별자·내장 Python/GIF 인코더·아이콘·EXE 내 RHI·설치 이미지를 검증합니다. 설치 코드 공유 테스트도 실행합니다.
+
+현재 Linux 검증 결과: Python 테스트 5개 통과(GIF 픽셀·프레임·반복·시간, 모의 Rhino 성공/취소/이동 실패 후 원본·파일 복원), C# 빌드 및 초기 Rhino 6 API 컴파일 통과, 설치 관리·재설치 동의·설치 결과 검증 테스트 통과. 모의 Rhino 테스트는 실제 Rhino 렌더링 테스트가 아닙니다.
+
+**Windows Rhino 6/8 실기기에서 EXE 설치·툴바·IronPython 실행·실제 GIF 캡처는 아직 실행하지 않았습니다.** 두 버전 모두 아래 항목을 확인해야 합니다.
+
+- 설치 후 최초 툴바 표시, 도킹·숨김 후 재시작, `BKIDGifMaker`로 다시 열기
+- 단일 부품·다중 부품·블록의 시작/중간/끝 프레임, 원본 위치·선택 복원
+- Esc, 저장 취소, 쓰기 불가 폴더, 기존 GIF 덮어쓰기, Undo/Redo
+- 한글·공백 경로, 프레임 밖 이동, 큰 모델의 처리 시간
+- AutoCrop과 동시 설치, 재설치 취소/승인, Rhino Installer 실행 결과
+
+구현 근거와 재사용 범위는 [docs/SOURCES.md](docs/SOURCES.md)에 기록했습니다.

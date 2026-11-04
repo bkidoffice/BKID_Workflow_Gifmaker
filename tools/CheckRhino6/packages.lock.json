@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "dependencies": {
+    ".NETFramework,Version=v4.5": {
+      "Microsoft.NETFramework.ReferenceAssemblies": {
+        "type": "Direct",
+        "requested": "[1.0.3, )",
+        "resolved": "1.0.3",
+        "contentHash": "vUc9Npcs14QsyOD01tnv/m8sQUnGTGOw1BCmKcv77LBJY7OxhJ+zJF7UD/sCL3lYNFuqmQEVlkfS4Quif6FyYg==",
+        "dependencies": {
+          "Microsoft.NETFramework.ReferenceAssemblies.net45": "1.0.3"
+        }
+      },
+      "RhinoCommon": {
+        "type": "Direct",
+        "requested": "[6.0.18016.23451, )",
+        "resolved": "6.0.18016.23451",
+        "contentHash": "1l6lrciyp8uNcfYUBgxbD+onX9nWywnUBrO2ECL+UNhJqhgDIZaEDfkvX24NTgqcftyGgdgytf9lzo8idR28XQ=="
+      },
+      "Microsoft.NETFramework.ReferenceAssemblies.net45": {
+        "type": "Transitive",
+        "resolved": "1.0.3",
+        "contentHash": "dcSLNuUX2rfZejsyta2EWZ1W5U6ucbFt697lRg1qiTlTM5ZlYv4uAvuxE6ROy6xLWWhLhOaReCDxkhxcajRYtQ=="
+      }
+    }
+  }
+}
